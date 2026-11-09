@@ -1,0 +1,42 @@
+/* 전역 토큰·기본 요소 (body, button) */
+:root {
+  --bg: #f7f7f8;
+  --fg: #1a1a1a;
+  --dim: #6b6b6b;
+  --line: #e2e2e5;
+  --accent: #2f6fed;
+  --error: #d33;
+  font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+}
+
+.dim {
+  color: var(--dim);
+  font-size: 14px;
+}
+
+.error {
+  color: var(--error);
+}
+
+button,
+.button {
+  padding: 8px 14px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #fff;
+  color: var(--accent);
+}

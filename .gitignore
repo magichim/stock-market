@@ -1,0 +1,32 @@
+# 비밀값 — backend/.env 등. 예시 파일만 커밋 (frontend/.env.development는 비밀값 없음)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# frontend (Vite + TS)
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+npm-debug.log*
+
+# backend (Python / uv)
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log
+
+# Claude Code 개인 설정
+.claude/settings.local.json

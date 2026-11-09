@@ -1,0 +1,19 @@
+/* 메인 페이지 (App) */
+.page {
+  max-width: 480px;
+  margin: 64px auto;
+  padding: 0 16px;
+}
+
+.card {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
