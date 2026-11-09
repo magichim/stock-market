@@ -33,5 +33,7 @@ nginx가 모든 요청을 백엔드(8100)로 넘긴다. `frontend/dist`가 있�
 
 ```bash
 cd frontend && npm ci && npm run build
-cd ../backend && uv run uvicorn app.main:app --port 8100
+cd ../backend && ./server.sh restart   # start|dev|stop|restart|status|log, PORT 기본 8100
 ```
+
+`server.sh`는 `uv run uvicorn app.main:app --port 8100 --workers 2`를 백그라운드로 띄우고 pid·로그를 `backend/.run/`에 둔다.

@@ -13,6 +13,7 @@ npm-debug.log*
 
 # backend (Python / uv)
 .venv/
+.run/
 __pycache__/
 *.py[cod]
 .pytest_cache/
