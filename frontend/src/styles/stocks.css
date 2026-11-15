@@ -1,0 +1,34 @@
+/* 종목 목록·주문 (StocksView) */
+.stocks {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stocks td {
+  padding: 10px 4px;
+  border-top: 1px solid var(--line);
+}
+
+.stocks .order {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.stocks .order input {
+  width: 64px;
+  padding: 6px;
+  font: inherit;
+}
+
+@media (max-width: 560px) {
+  .stocks tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+  }
+
+  .stocks .order {
+    grid-column: 1 / -1;
+    border-top: none;
+  }
+}

@@ -8,6 +8,10 @@ dependencies = [
     "pyjwt",
     "pydantic-settings",
     "uvicorn[standard]",
+    "asyncpg>=0.32.0",
+    "sqlalchemy[asyncio]>=2.1.8",
+    "redis>=8.1.0",
+    "httpx>=0.28.1",
 ]
 
 [build-system]

@@ -1,0 +1,60 @@
+/* 내 계좌 (AccountView) */
+.summary {
+  display: flex;
+  gap: 32px;
+}
+
+.summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary strong {
+  font-size: 20px;
+}
+
+.holdings {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.holdings th,
+.holdings td {
+  padding: 8px 4px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+
+.holdings th {
+  color: var(--dim);
+  font-weight: normal;
+  font-size: 14px;
+}
+
+.holdings .num {
+  text-align: right;
+}
+
+.trades {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trades li {
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.trades li > span:first-child {
+  margin-right: 8px;
+  font-weight: 600;
+}
+
+@media (max-width: 560px) {
+  .summary {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+}

@@ -6,6 +6,8 @@
   --line: #e2e2e5;
   --accent: #2f6fed;
   --error: #d33;
+  --up: #e03131;
+  --down: #1c64f2;
   font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
   color: var(--fg);
   background: var(--bg);
@@ -24,6 +26,15 @@ body {
   color: var(--error);
 }
 
+/* 등락 색 — 상승 빨강, 하락 파랑 */
+.up {
+  color: var(--up);
+}
+
+.down {
+  color: var(--down);
+}
+
 button,
 .button {
   padding: 8px 14px;
@@ -34,6 +45,11 @@ button,
   font: inherit;
   text-decoration: none;
   cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 button.secondary {

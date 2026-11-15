@@ -1,16 +1,82 @@
+import asyncio
+import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.responses import FileResponse
+import httpx
+import redis.asyncio as aioredis
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy import text
 
-from .auth import CurrentUser, get_optional_user
+from .auth import CurrentUser, get_optional_user, origin_allowed
+from .config import settings
+from .db import Base, engine
+from .prices import run_collector
+from .routers.leaderboard import router as leaderboard_router
+from .routers.stocks import router as stocks_router
+from .routers.trading import router as trading_router
+from .seed import seed_stocks
+from .users import client as users_client
+from .users import fetch_users
 
-app = FastAPI(title="AGISAJA Stock")
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        # 워커 여러 개가 동시에 테이블을 만들지 않도록 직렬화
+        await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext('stock-market-schema'))"))
+        await conn.run_sync(Base.metadata.create_all)
+        await seed_stocks(conn)
+    app.state.redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+    collector = asyncio.create_task(run_collector(app.state.redis))
+    yield
+    collector.cancel()
+    await app.state.redis.aclose()
+    await engine.dispose()
+    await users_client.aclose()
+
+
+app = FastAPI(title="AGISAJA Stock", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def reject_cross_site_writes(request: Request, call_next):
+    """인증이 쿠키로 자동 전송되므로, 다른 사이트에서 보낸 상태 변경 요청(CSRF)은 막는다."""
+    if request.method not in ("GET", "HEAD", "OPTIONS") and request.url.path.startswith("/api/") and not origin_allowed(request):
+        return JSONResponse({"detail": "cross-site request blocked"}, status_code=403)
+    return await call_next(request)
 
 
 @app.get("/api/me")
-def me(user: CurrentUser | None = Depends(get_optional_user)) -> dict:
-    return {"user": user}
+async def me(user: CurrentUser | None = Depends(get_optional_user)) -> dict:
+    """로그인 사용자 — JWT의 id·username에 predict-market 프로필(닉네임·아바타)을 붙인다.
+
+    프로필 조회가 실패해도 로그인 상태는 유지한다 (JWT 값만 내린다).
+    """
+    if user is None:
+        return {"user": None}
+    try:
+        profile = (await fetch_users([user.id])).get(user.id, {})
+    except httpx.HTTPError:
+        log.exception("profile lookup failed")
+        profile = {}
+    return {
+        "user": {
+            "id": user.id,
+            "username": profile.get("username", user.username),
+            "display_name": profile.get("display_name"),
+            "avatar_url": profile.get("avatar_url"),
+        }
+    }
+
+
+app.include_router(stocks_router)
+app.include_router(trading_router)
+app.include_router(leaderboard_router)
 
 
 # --- 프로덕션 SPA 서빙 — nginx가 모든 요청을 이 앱으로 넘기고, frontend/dist가 있으면 정적 파일도 여기서 응답한다.

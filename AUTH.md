@@ -69,13 +69,16 @@ COOKIE_DOMAIN=.agisaja.com                  # 상위 도메인만. 스킴·포�
 TRUSTED_ORIGINS=https://stock.agisaja.com   # origin 정확히, 끝 슬래시 없이. 여러 개면 쉼표로 구분
 COOKIE_SECURE=true                          # 기본값. 켜져 있어야 __Secure-at 이름을 쓴다
 JWT_SECRET=...                              # stock과 같은 값
+INTERNAL_API_TOKEN=...                      # stock과 같은 값 (서버 간 내부 API)
 ```
 `TRUSTED_ORIGINS`는 CORS(`allow_credentials`), CSRF Origin 검사, 소셜 로그인 후 복귀 URL 허용에 함께 쓰인다.
 
 ### stock 백엔드 (`backend/.env`)
 ```
-JWT_SECRET=...              # agisaja.com과 같은 값 (필수)
-ACCESS_COOKIE=__Secure-at   # 기본값
+JWT_SECRET=...                       # agisaja.com과 같은 값 (필수)
+ACCESS_COOKIE=__Secure-at            # 기본값
+INTERNAL_API_TOKEN=...               # agisaja.com과 같은 값 (필수)
+PREDICT_API_URL=https://agisaja.com  # 기본값. 로컬은 http://localhost:8000
 ```
 
 ### stock 프론트 (빌드 시 환경변수)
@@ -103,6 +106,29 @@ localhost 쿠키는 포트를 구분하지 않으므로 `COOKIE_DOMAIN` 없이�
 - agisaja.com에 접속하면 앱 시작 시 `/api/auth/me`가 401을 받고 자동 refresh가 일어나 `.agisaja.com` 쿠키로 바뀐다 (기존 쿠키는 삭제)
 - stock에 먼저 왔으면 로그인 버튼을 누르면 된다. agisaja.com 로그인 페이지에서 위 과정이 자동으로 진행되고 바로 stock으로 돌아온다. 다시 인증할 필요는 없다
 - 배포 후 새로 로그인한 사용자는 처음부터 공유 쿠키로 발급된다
+
+## 서버 간 내부 API
+
+리더보드에 다른 사용자의 표시 정보가 필요하고 탈퇴 정리는 사용자 요청과 무관한 배치라, 사용자 JWT 대신 **서버 간 Bearer 토큰**으로 predict-market API를 호출한다. 이 서비스는 predict-market DB에 접속하지 않는다.
+
+JWT에는 id·username만 있어 닉네임·아바타는 이 API로 받는다. 인증(JWT 검증) 자체는 이 API를 쓰지 않는다.
+
+| 호출 위치 | 용도 |
+| --- | --- |
+| `GET /api/me` | 내 닉네임·아바타 (실패해도 JWT의 id·username으로 로그인 상태 유지) |
+| 리더보드 | 순위에 든 사용자들의 표시 정보, 봇·게스트·admin 제외 |
+| 탈퇴 정리 배치 | 장 마감 후 하루 1회, 응답에 없는 id의 계좌 삭제 |
+
+```
+stock 백엔드 ── GET {PREDICT_API_URL}/api/internal/users?ids=1,2,3 ──▶ agisaja.com 백엔드
+              Authorization: Bearer {INTERNAL_API_TOKEN}
+           ◀── [{id, username, display_name, avatar_url, animal, ranked}] (없는 id = 삭제된 사용자)
+```
+
+- 토큰은 두 서버의 `backend/.env`에 같은 값으로만 둔다 (`INTERNAL_API_TOKEN`). 생성: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+- predict-market은 토큰이 비어 있으면 내부 API를 끈다(404). 비교는 `hmac.compare_digest`
+- 요청당 id 최대 500개 (stock은 200개씩 나눠 보낸다)
+- 브라우저는 이 API를 호출하지 않는다. 토큰을 프론트 코드·빌드 환경변수에 넣지 않는다
 
 ## 보안 주의
 

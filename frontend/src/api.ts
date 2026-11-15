@@ -1,9 +1,12 @@
 // 로그인·refresh·로그아웃은 agisaja.com이 처리한다 (AUTH.md). 이 앱은 공유된 access 쿠키로 자기 API만 호출한다
 export const AUTH_ORIGIN = import.meta.env.VITE_AUTH_ORIGIN || 'https://agisaja.com'
 
+// display_name·avatar_url은 predict-market 프로필 — 조회에 실패하면 null
 export interface User {
   id: number
   username: string
+  display_name: string | null
+  avatar_url: string | null
 }
 
 // has_session 표시 쿠키(.agisaja.com)로 로그인 여부만 안다 — 토큰 쿠키는 HttpOnly라 읽을 수 없다
@@ -33,6 +36,89 @@ export async function fetchMe(): Promise<User | null> {
   const res = await send('/api/me')
   if (!res.ok) throw new Error(`/api/me ${res.status}`)
   return (await res.json()).user
+}
+
+export interface Stock {
+  symbol: string
+  name: string
+  market: string
+  price: number | null
+  prev_close: number | null
+  price_at: string | null
+}
+
+export interface Holding {
+  symbol: string
+  name: string
+  quantity: number
+  avg_price: number
+  price: number
+  value: number
+  pnl: number
+}
+
+export interface Account {
+  event: string | null
+  initial_cash: number
+  cash: number
+  holdings: Holding[]
+  total_value: number
+  return_rate: number
+}
+
+export interface Trade {
+  id: number
+  symbol: string
+  name: string
+  side: 'buy' | 'sell'
+  quantity: number
+  price: number
+  amount: number
+  realized_pnl: number | null
+  executed_at: string
+}
+
+export interface StockEvent {
+  slug: string
+  title: string
+  description: string
+  initial_cash: number
+  start_date: string
+  end_date: string
+}
+
+// 프로필 조회가 실패하면 username·display_name이 null로 온다 (순위는 유지)
+export interface RankEntry {
+  username: string | null
+  display_name: string | null
+  avatar_url: string | null
+  return_rate: number
+}
+
+// 실패 응답의 detail(서버 한글 메시지)을 에러로 올린다
+async function json<T>(res: Response): Promise<T> {
+  if (res.ok) return res.json()
+  const detail = await res.json().then((b) => b.detail, () => null)
+  throw new Error(typeof detail === 'string' ? detail : `요청 실패 (${res.status})`)
+}
+
+const eventQuery = (event?: string) => (event ? `?event=${encodeURIComponent(event)}` : '')
+
+export const fetchStocks = async () => json<{ market_open: boolean; stocks: Stock[] }>(await send('/api/stocks'))
+export const fetchEvents = async () => json<StockEvent[]>(await send('/api/events'))
+export const fetchAccount = async (event?: string) => json<Account>(await send(`/api/account${eventQuery(event)}`))
+export const fetchTrades = async (event?: string) => json<Trade[]>(await send(`/api/account/trades${eventQuery(event)}`))
+export const fetchLeaderboard = async (query: string) => json<RankEntry[]>(await send(`/api/leaderboard?${query}`))
+
+// 시장가 주문 — 최신가로 즉시 전량 체결된다
+export async function placeTrade(body: { symbol: string; side: 'buy' | 'sell'; quantity: number; event?: string }) {
+  return json<Trade>(
+    await send('/api/trades', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  )
 }
 
 // 로그인은 agisaja.com 로그인 페이지에서 하고 ?next=로 이 페이지에 돌아온다

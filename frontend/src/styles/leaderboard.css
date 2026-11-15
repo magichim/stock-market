@@ -1,0 +1,30 @@
+/* 리더보드 (LeaderboardView) */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ranking {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ranking li {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.ranking .rank {
+  width: 24px;
+  color: var(--dim);
+}
+
+.ranking .name {
+  flex: 1;
+}
