@@ -17,7 +17,7 @@ frontend/src/     종목(주문) · 내 계좌 · 리더보드 탭
 
 데이터는 전용 DB(`stock_market`)에 두고, 다른 사용자의 프로필은 predict-market 내부 API로 조회한다 (AUTH.md "서버 간 내부 API"). Redis는 predict-market과 같이 써도 된다 (키 접두어 `stock:`).
 
-로컬은 DB를 한 번 만들어 둔다 (테이블은 백엔드 시작 시 생성): `createdb -O dev stock_market` — `dev`에 DB 생성 권한이 없으면 superuser로 실행.
+DB와 테이블은 백엔드 시작 시 만들어진다. DB 생성에는 `dev`에 CREATEDB 권한이 필요하다 (superuser로 한 번: `psql -d postgres -c "ALTER ROLE dev CREATEDB;"`). 권한을 주지 않으려면 DB를 미리 만들어 둔다: `createdb -O dev stock_market`.
 
 ## 실행 (로컬)
 

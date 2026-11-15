@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from .auth import CurrentUser, get_optional_user, origin_allowed
 from .config import settings
-from .db import Base, engine
+from .db import Base, engine, ensure_database
 from .prices import run_collector
 from .routers.leaderboard import router as leaderboard_router
 from .routers.stocks import router as stocks_router
@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await ensure_database()
     async with engine.begin() as conn:
         # 워커 여러 개가 동시에 테이블을 만들지 않도록 직렬화
         await conn.execute(text("SELECT pg_advisory_xact_lock(hashtext('stock-market-schema'))"))

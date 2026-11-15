@@ -20,7 +20,7 @@ GET /api/internal/users ··user_id··▶ accounts ──┬── holdings ─
   - 리더보드 요청마다 그 순위의 id를 한 번에 조회한다 (`users.fetch_users`, 캐시 없음). API가 실패하면 순위는 그대로 두고 이름만 비워 내린다.
 - 탈퇴 정리: predict-market에서 사용자가 삭제되면(탈퇴, 게스트 병합) 장 마감 후 하루 한 번 배치(`users.purge_deleted_users`)가 같은 API로 존재 여부를 확인해(응답에 없는 id = 삭제) 그 사용자의 계좌를 지운다 (보유·거래·스냅샷은 CASCADE). 그 전까지 리더보드에서는 응답에 없는 사용자를 뺀다. API 설정이 잘못돼 절반 넘게 없어 보이면 지우지 않고 경고만 남긴다.
 
-테이블 생성은 predict-market과 같이 앱 시작 시 `create_all`(멱등)로 한다. DB는 superuser로 한 번 만들어 둔다 (`createdb -O dev stock_market`).
+테이블 생성은 predict-market과 같이 앱 시작 시 `create_all`(멱등)로 한다. DB가 없으면 그 전에 같은 계정으로 `CREATE DATABASE`를 실행한다 (`db.ensure_database`, 계정에 CREATEDB 권한 필요). 운영처럼 앱 계정에 CREATEDB를 주지 않는 환경은 DB를 미리 만들어 둔다 (`createdb -O dev stock_market`).
 
 ## ENUM 대신 CHECK
 

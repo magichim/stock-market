@@ -1,3 +1,5 @@
+import asyncpg
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -17,3 +19,25 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 class Base(DeclarativeBase):
     pass
+
+
+async def ensure_database() -> None:
+    """DATABASE_URL의 DB가 없으면 같은 계정으로 만든다 (계정에 CREATEDB 권한 필요). 있으면 아무것도 하지 않는다."""
+    url = make_url(settings.database_url).set(drivername="postgresql")
+    try:
+        await (await asyncpg.connect(url.render_as_string(hide_password=False))).close()
+        return
+    except asyncpg.InvalidCatalogNameError:
+        pass
+    conn = await asyncpg.connect(url.set(database="postgres").render_as_string(hide_password=False))
+    try:
+        await conn.execute(f'CREATE DATABASE "{url.database.replace(chr(34), chr(34) * 2)}"')
+    except asyncpg.DuplicateDatabaseError:
+        pass  # 다른 워커가 먼저 만듦
+    except asyncpg.InsufficientPrivilegeError as e:
+        raise RuntimeError(
+            f"DB '{url.database}'가 없고 '{url.username}'에 CREATEDB 권한이 없다 — "
+            f"superuser로 `createdb -O {url.username} {url.database}`를 실행한다"
+        ) from e
+    finally:
+        await conn.close()
