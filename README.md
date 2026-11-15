@@ -26,7 +26,7 @@ predict-market(프론트 5173, 백엔드 8000)이 먼저 떠 있어야 로그인
 ```bash
 # 백엔드 — localhost:8100
 cd backend
-cp .env.example .env   # JWT_SECRET·INTERNAL_API_TOKEN을 predict-market과 같게, 로컬은 ACCESS_COOKIE=at, PREDICT_API_URL=http://localhost:8000
+cp .env.example .env   # JWT_SECRET·INTERNAL_API_TOKEN을 predict-market과 같게, 로컬은 ACCESS_COOKIE=at, INTERNAL_PREDICT_API_URL=http://localhost:8000
 uv run uvicorn app.main:app --port 8100 --reload
 
 # 프론트 — localhost:5273 (/api는 8100으로 프록시)

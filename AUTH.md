@@ -75,10 +75,10 @@ INTERNAL_API_TOKEN=...                      # stock과 같은 값 (서버 간 �
 
 ### stock 백엔드 (`backend/.env`)
 ```
-JWT_SECRET=...                       # agisaja.com과 같은 값 (필수)
-ACCESS_COOKIE=__Secure-at            # 기본값
-INTERNAL_API_TOKEN=...               # agisaja.com과 같은 값 (필수)
-PREDICT_API_URL=https://agisaja.com  # 기본값. 로컬은 http://localhost:8000
+JWT_SECRET=...                                # agisaja.com과 같은 값 (필수)
+ACCESS_COOKIE=__Secure-at                     # 기본값
+INTERNAL_API_TOKEN=...                        # agisaja.com과 같은 값 (필수)
+INTERNAL_PREDICT_API_URL=https://agisaja.com  # 기본값. 로컬은 http://localhost:8000
 ```
 
 ### stock 프론트 (빌드 시 환경변수)
@@ -120,7 +120,7 @@ JWT에는 id·username만 있어 닉네임·아바타는 이 API로 받는다. �
 | 탈퇴 정리 배치 | 장 마감 후 하루 1회, 응답에 없는 id의 계좌 삭제 |
 
 ```
-stock 백엔드 ── GET {PREDICT_API_URL}/api/internal/users?ids=1,2,3 ──▶ agisaja.com 백엔드
+stock 백엔드 ── GET {INTERNAL_PREDICT_API_URL}/api/internal/users?ids=1,2,3 ──▶ agisaja.com 백엔드
               Authorization: Bearer {INTERNAL_API_TOKEN}
            ◀── [{id, username, display_name, avatar_url, animal, ranked}] (없는 id = 삭제된 사용자)
 ```

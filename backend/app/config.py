@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     # agisaja.com이 COOKIE_DOMAIN으로 발급하는 access 쿠키 이름 (로컬 COOKIE_SECURE=false면 "at")
     access_cookie: str = "__Secure-at"
     # predict-market 백엔드 주소 — 사용자 프로필을 내부 API(/api/internal/users)로 조회한다 (AUTH.md). 로컬은 http://localhost:8000
-    predict_api_url: str = "https://agisaja.com"
+    internal_predict_api_url: str = "https://agisaja.com"
     # 내부 API Bearer 토큰 — predict-market INTERNAL_API_TOKEN과 같은 값 (필수)
     internal_api_token: str
     # 이 서비스 주소 — CSRF Origin 검사에 쓴다

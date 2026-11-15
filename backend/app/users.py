@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 CHUNK = 200  # 요청당 id 수 (predict-market 상한 500)
 
 client = httpx.AsyncClient(
-    base_url=settings.predict_api_url,
+    base_url=settings.internal_predict_api_url,
     timeout=5,
     headers={"Authorization": f"Bearer {settings.internal_api_token}"},
 )
@@ -42,7 +42,7 @@ async def purge_deleted_users(session: AsyncSession) -> None:
     existing = await fetch_users(ids)
     missing = [i for i in ids if i not in existing]
     if len(missing) > 5 and len(missing) * 2 > len(ids):
-        log.warning("purge skipped: %d/%d account users missing — check PREDICT_API_URL", len(missing), len(ids))
+        log.warning("purge skipped: %d/%d account users missing — check INTERNAL_PREDICT_API_URL", len(missing), len(ids))
         return
     if missing:
         await session.execute(delete(Account).where(Account.user_id.in_(missing)))
