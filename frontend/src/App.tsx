@@ -45,6 +45,20 @@ export function App() {
   }
 
   const name = user ? (user.display_name ?? user.username) : ''
+  // 탭 메뉴 — PC는 헤더 네비게이션, 768px 이하는 오른쪽 드롭다운 안에 같은 버튼을 둔다
+  const tabButtons = TABS.map((t) => (
+    <button
+      key={t.key}
+      className={t.key === tab ? 'active' : ''}
+      onClick={() => {
+        setTab(t.key)
+        setMenuOpen(false)
+      }}
+    >
+      {t.label}
+    </button>
+  ))
+  const toggleMenu = () => setMenuOpen((open) => !open)
 
   return (
     <div className="app">
@@ -54,39 +68,46 @@ export function App() {
             AGI<span className="logo-accent">SAJA</span>
             <span className="logo-sub">Stock</span>
           </a>
+          <nav className="nav">{tabButtons}</nav>
           <div className="header-actions">
-            {loading ? null : user ? (
+            {loading ? null : (
               <>
-                {/* 사용자(아바타·이름)를 누르면 로그아웃 메뉴가 열린다 — PC·모바일 공통 */}
-                <button className="header-user" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
-                  <span className="header-avatar">
-                    {user.avatar_url ? <img src={user.avatar_url} alt="" /> : name.slice(0, 1)}
-                  </span>
-                  <span className="header-user-name">{name}</span>
-                </button>
+                {user ? (
+                  // 사용자(아바타·이름)를 누르면 드롭다운이 열린다 — PC는 로그아웃, 모바일은 탭 + 로그아웃
+                  <button className="header-user" aria-expanded={menuOpen} onClick={toggleMenu}>
+                    <span className="header-avatar">
+                      {user.avatar_url ? <img src={user.avatar_url} alt="" /> : name.slice(0, 1)}
+                    </span>
+                    <span className="header-user-name">{name}</span>
+                  </button>
+                ) : (
+                  <>
+                    <a className="btn btn-primary" href={loginUrl()}>
+                      로그인
+                    </a>
+                    {/* 비로그인 모바일 — 탭을 열 메뉴 버튼 (PC에서는 숨김) */}
+                    <button className="menu-toggle" aria-label="메뉴" aria-expanded={menuOpen} onClick={toggleMenu}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                        <path d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                  </>
+                )}
                 {menuOpen && (
-                  <nav className="nav">
-                    <button onClick={handleLogout}>로그아웃</button>
-                  </nav>
+                  <div className="menu">
+                    <div className="menu-tabs">{tabButtons}</div>
+                    {user && <button onClick={handleLogout}>로그아웃</button>}
+                  </div>
                 )}
               </>
-            ) : (
-              <a className="btn btn-primary" href={loginUrl()}>
-                로그인
-              </a>
             )}
           </div>
         </div>
       </header>
 
       <main className="main">
-        <nav className="filter-tabs">
-          {TABS.map((t) => (
-            <button key={t.key} className={t.key === tab ? 'active' : ''} onClick={() => setTab(t.key)}>
-              {t.label}
-            </button>
-          ))}
-          {user && events.length > 0 && tab !== 'leaderboard' && (
+        {user && events.length > 0 && tab !== 'leaderboard' && (
+          <div className="account-select">
             <select value={event} onChange={(e) => setEvent(e.target.value)}>
               <option value="">기본 계좌</option>
               {events.map((e) => (
@@ -95,8 +116,8 @@ export function App() {
                 </option>
               ))}
             </select>
-          )}
-        </nav>
+          </div>
+        )}
 
         {tab === 'stocks' && <StocksView loggedIn={!!user} event={event || undefined} />}
         {tab === 'account' &&

@@ -99,10 +99,13 @@
   border-bottom-color: var(--main);
 }
 
-/* 거래 계좌 선택 (기본·이벤트) — 탭 줄 오른쪽 */
-.filter-tabs select {
-  flex: none;
-  margin-left: auto;
+/* 거래 계좌 선택 (기본·이벤트) — 본문 위 오른쪽 */
+.account-select {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.account-select select {
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 8px;

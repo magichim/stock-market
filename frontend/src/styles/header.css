@@ -72,8 +72,53 @@
   background: var(--bg);
 }
 
-/* 사용자 드롭다운 — 아바타 아래 작은 메뉴 */
+/* 헤더 네비게이션 — 탭(종목·내 계좌·리더보드). 768px 이하에서는 숨기고 드롭다운(.menu-tabs)으로 */
 .nav {
+  display: flex;
+  gap: 4px;
+}
+
+.nav button,
+.menu button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.nav button:hover,
+.nav button.active,
+.menu button:hover,
+.menu button.active {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* 비로그인 모바일 메뉴 버튼 — PC에서는 숨김 */
+.menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+
+.menu-toggle:hover,
+.menu-toggle[aria-expanded='true'] {
+  background: var(--bg);
+}
+
+/* 오른쪽 드롭다운 — PC는 로그아웃, 모바일은 탭 + 로그아웃 */
+.menu {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
@@ -89,21 +134,12 @@
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
-.nav button {
+.menu button {
   padding: 10px 12px;
-  border: none;
-  border-radius: 8px;
-  background: none;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-dim);
-  text-align: left;
-  cursor: pointer;
 }
 
-.nav button:hover {
-  background: var(--bg);
-  color: var(--text);
+.menu-tabs {
+  display: none;
 }
 
 /* 헤더 프로필 이미지 — 없으면 이름 첫 글자 */
@@ -131,6 +167,27 @@
 @media (max-width: 768px) {
   .header-inner {
     padding: 8px 12px;
+  }
+
+  .nav {
+    display: none;
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+  }
+
+  .menu-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  /* 탭과 로그아웃 사이 구분선 */
+  .menu-tabs + button {
+    margin-top: 4px;
+    border-top: 1px solid var(--border);
+    border-radius: 0 0 8px 8px;
   }
 
   /* 모바일은 아바타만 */
