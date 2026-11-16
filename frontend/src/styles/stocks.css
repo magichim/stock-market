@@ -1,13 +1,22 @@
 /* 종목 목록·주문 (StocksView) */
 .stocks {
-  width: 100%;
-  border-collapse: collapse;
+  margin: 0;
+  padding: 0;
+  list-style: none;
   font-size: 14px;
 }
 
-.stocks td {
+.stock {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   padding: 12px 4px;
   border-top: 1px solid var(--border);
+}
+
+.stock-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .stocks strong {
@@ -29,14 +38,12 @@
 }
 
 @media (max-width: 640px) {
-  .stocks tr {
-    display: grid;
-    grid-template-columns: 1fr auto;
+  .stock {
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
 
   .stocks .order {
-    grid-column: 1 / -1;
-    border-top: none;
-    padding-top: 0;
+    flex-basis: 100%;
   }
 }

@@ -19,15 +19,16 @@ log = logging.getLogger(__name__)
 REALTIME_KEY = "stock:lb:realtime"
 FAR_PAST, FAR_FUTURE = date(1970, 1, 1), date(9999, 12, 31)
 
-# 계좌 평가액 V = 현금 + Σ 보유수량 × 최신가
+# 계좌 평가액 V (KRW) = Σ 통화별 현금 × 환율 + Σ 보유수량 × 최신가 × 종목 통화 환율
 ACCOUNT_VALUES = """
 account_values AS (
     SELECT a.id, a.user_id, a.event_id, a.initial_cash,
-           a.cash + COALESCE(SUM(h.quantity * s.last_price), 0) AS value
+           COALESCE((SELECT SUM(b.amount * r.rate) FROM account_balances b
+                     JOIN fx_rates r ON r.currency = b.currency WHERE b.account_id = a.id), 0)
+         + COALESCE((SELECT SUM(h.quantity * s.last_price * r.rate) FROM holdings h
+                     JOIN stocks s ON s.id = h.stock_id JOIN fx_rates r ON r.currency = s.currency
+                     WHERE h.account_id = a.id), 0) AS value
     FROM accounts a
-    LEFT JOIN holdings h ON h.account_id = a.id
-    LEFT JOIN stocks s ON s.id = h.stock_id
-    GROUP BY a.id
 )"""
 
 # 구간 [start, end) 수익률 = 끝 평가액 / 기준 평가액 - 1

@@ -6,9 +6,19 @@ SERVICE_PLAN.md를 구체화한 스키마. 정해진 주기마다 증권거래�
 [predict-market API]                 [stock_market DB — 이 서비스 전용]
 GET /api/internal/users ··user_id··▶ accounts ──┬── holdings ──▶ stocks ◀── price_ticks
                   (FK 없음, 앱에서 합침)   ▲     ├── trades ─────▶   ▲            ▲
-                                          │     └── equity_snapshots └─ tick_id ─┘
+                                          │     │                   └─ tick_id ─┘
+                                          │     ├── account_balances ──▶ fx_rates ◀── stocks.currency
+                                          │     ├── exchanges ─────────▶ fx_rates
+                                          │     └── equity_snapshots
                                         events (이벤트 계좌)
 ```
+
+## 통화 — 시장 통화로 거래, 평가는 KRW
+
+- 종목은 상장 시장의 통화로 거래한다 (`stocks.currency`: KOSPI·KOSDAQ → KRW, NASDAQ·NYSE → USD). 가격·평단·체결 금액·실현손익은 모두 그 종목 통화다.
+- 현금은 통화별로 따로 둔다 (`account_balances`). 종목은 **그 종목 통화의 현금으로만** 사고, 매도 대금도 그 통화로 들어온다. 다른 통화가 필요하면 먼저 환전한다 (`exchanges`).
+- **기준 통화는 KRW** — 시작 자금(`initial_cash`), 평가액, 수익률, 스냅샷은 모두 KRW 환산이다. 환율(`fx_rates.rate`)은 1 통화 단위당 KRW이고 KRW는 1로 고정.
+- 따라서 수익률에는 주가 변동과 환율 변동이 함께 반영된다.
 
 ## 0. predict-market과의 관계 — 사용자는 API로만
 
@@ -37,10 +47,11 @@ CREATE TABLE stocks (
     id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     symbol        VARCHAR(12)  NOT NULL UNIQUE,   -- 거래소 종목코드 (예: 005930)
     name          VARCHAR(100) NOT NULL,          -- 삼성전자
-    market        VARCHAR(10)  NOT NULL,          -- KOSPI | KOSDAQ
+    market        VARCHAR(10)  NOT NULL,          -- KOSPI | KOSDAQ | NASDAQ | NYSE
+    currency      VARCHAR(3)   NOT NULL DEFAULT 'KRW',  -- 거래 통화 (시드: 시장 → 통화)
     is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
     display_order SMALLINT     NOT NULL DEFAULT 0,
-    last_price    NUMERIC(14,2),                  -- 최신가 (수집기 갱신)
+    last_price    NUMERIC(14,2),                  -- 최신가, 종목 통화 (수집기 갱신)
     last_price_at TIMESTAMPTZ,                    -- 최신가 수집 시각
     prev_close    NUMERIC(14,2),                  -- 전 거래일 종가
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
@@ -62,6 +73,18 @@ CREATE TABLE price_ticks (
 ```
 
 규모: 종목 30개 × 390틱/일 × 250거래일 ≈ 연 300만 행. 장기 차트가 필요해지면 일봉 집계 테이블을 추가한다.
+
+### fx_rates
+
+통화별 **최신 환율 캐시** (`stocks.last_price`와 같은 역할). 수집기가 가격 수집 주기마다 KRW를 뺀 통화를 갱신하고, 환전·평가액 계산이 이 값을 쓴다. KRW 행(rate 1)은 `SCHEMA_PATCHES`, 나머지 통화 행은 시드(`seed.CURRENCIES`)가 넣는다. 환전 시점의 환율은 `exchanges.rate`에 남으므로 환율 이력 테이블은 두지 않는다.
+
+```sql
+CREATE TABLE fx_rates (
+    currency VARCHAR(3)    PRIMARY KEY,          -- ISO 4217 (KRW, USD)
+    rate     NUMERIC(14,4) CHECK (rate > 0),     -- 1 통화 단위 = rate KRW. KRW는 1
+    rate_at  TIMESTAMPTZ                          -- 수집 시각 (KRW는 NULL)
+);
+```
 
 ## 2. 이벤트
 
@@ -88,23 +111,57 @@ CREATE TABLE events (
 
 ### accounts
 
-사용자 × (기본 | 이벤트)당 1개. `event_id IS NULL`이 기본 계좌로, 월간·연간·실시간 리더보드 대상이다. 계좌는 첫 매수 때 만들어진다 — 그 전 조회는 "시작 자금만 있는 빈 계좌"로 응답한다. 추가 입금은 없으므로 수익률은 항상 `평가액 / 기준 평가액 − 1`로 구할 수 있다.
+사용자 × (기본 | 이벤트)당 1개. `event_id IS NULL`이 기본 계좌로, 월간·연간·실시간 리더보드 대상이다. 계좌는 첫 매수·환전 때 만들어지고 같은 트랜잭션에서 KRW 잔액(`initial_cash`)을 넣는다 — 그 전 조회는 "시작 자금만 있는 빈 계좌"로 응답한다. 추가 입금은 없으므로 수익률은 항상 `평가액 / 기준 평가액 − 1`로 구할 수 있다. 현금은 `account_balances`에 통화별로 있다.
 
 ```sql
 CREATE TABLE accounts (
     id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id      BIGINT        NOT NULL,          -- predict-market users.id (다른 서비스라 FK 없음)
     event_id     BIGINT        REFERENCES events(id) ON DELETE CASCADE,
-    initial_cash NUMERIC(18,2) NOT NULL,              -- 생성 시점 시작 자금 (설정·이벤트 값 복사)
-    cash         NUMERIC(18,2) NOT NULL CHECK (cash >= 0),
+    initial_cash NUMERIC(18,2) NOT NULL,              -- 생성 시점 시작 자금, KRW (설정·이벤트 값 복사)
     created_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
     UNIQUE NULLS NOT DISTINCT (user_id, event_id)
 );
 ```
 
+기존 DB의 `accounts.cash`는 `SCHEMA_PATCHES`가 `account_balances`(KRW)로 옮긴 뒤 `legacy_cash`(NULL 허용)로 이름만 바꿔 남긴다. 모든 환경에 반영되면 컬럼과 패치를 지운다.
+
+### account_balances
+
+계좌 × 통화별 현금. 잔액이 0이 돼도 행은 지우지 않는다.
+
+```sql
+CREATE TABLE account_balances (
+    account_id BIGINT        NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    currency   VARCHAR(3)    NOT NULL REFERENCES fx_rates(currency),
+    amount     NUMERIC(18,2) NOT NULL CHECK (amount >= 0),
+    PRIMARY KEY (account_id, currency)
+);
+```
+
+### exchanges
+
+append-only 환전 내역. 주문과 같이 그 시점 최신 환율로 즉시 체결된다. `rate`는 `from` 1단위당 `to` 수량(`fx_rates.rate(from) / fx_rates.rate(to)`), 받는 금액은 0.01 단위 내림. 수수료·스프레드는 아직 없다.
+
+```sql
+CREATE TABLE exchanges (
+    id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    account_id    BIGINT        NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    from_currency VARCHAR(3)    NOT NULL REFERENCES fx_rates(currency),
+    to_currency   VARCHAR(3)    NOT NULL REFERENCES fx_rates(currency),
+    from_amount   NUMERIC(18,2) NOT NULL CHECK (from_amount > 0),
+    to_amount     NUMERIC(18,2) NOT NULL CHECK (to_amount > 0),
+    rate          NUMERIC(18,8) NOT NULL,
+    executed_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    CHECK (from_currency <> to_currency)
+);
+
+CREATE INDEX idx_exchanges_account_time ON exchanges (account_id, executed_at DESC);
+```
+
 ### holdings
 
-계좌 × 종목당 현재 보유. 수량이 0이 되면 행을 삭제한다. `avg_price`는 이동평균 매입가 — 매수 시 `(기존수량×평단 + 매수수량×체결가) / 새 수량`으로 갱신하고 매도 시에는 바뀌지 않는다. 공매도는 없다(보유 수량까지만 매도).
+계좌 × 종목당 현재 보유. 수량이 0이 되면 행을 삭제한다. `avg_price`는 종목 통화의 이동평균 매입가 — 매수 시 `(기존수량×평단 + 매수수량×체결가) / 새 수량`으로 갱신하고 매도 시에는 바뀌지 않는다. 공매도는 없다(보유 수량까지만 매도).
 
 ```sql
 CREATE TABLE holdings (
@@ -119,7 +176,7 @@ CREATE TABLE holdings (
 
 ### trades
 
-append-only 체결 내역. 주문 = 체결이라 주문 테이블이 따로 없다. `price`는 체결 시점의 `stocks.last_price`, `tick_id`는 그 가격의 원천 틱. 매도는 `realized_pnl = (체결가 − 평단) × 수량`을 기록한다.
+append-only 체결 내역. 주문 = 체결이라 주문 테이블이 따로 없다. 금액 컬럼은 모두 종목 통화(`stocks.currency`)다. `price`는 체결 시점의 `stocks.last_price`, `tick_id`는 그 가격의 원천 틱. 매도는 `realized_pnl = (체결가 − 평단) × 수량`을 기록한다.
 
 ```sql
 CREATE TABLE trades (
@@ -141,27 +198,28 @@ CREATE INDEX idx_trades_account_time ON trades (account_id, executed_at DESC);
 #### 체결 규칙
 
 1. 장 운영 시간(KST 평일 09:00–15:30)이고, 종목 최신가가 신선할 때(`last_price_at`이 수집 주기 × 3 이내)만 체결한다. 이벤트 계좌는 이벤트 기간 안에서만.
-2. 한 트랜잭션에서 계좌 행을 `SELECT ... FOR UPDATE`로 잠근 뒤 현금·보유 수량을 확인하고 `accounts.cash`, `holdings`, `trades`를 함께 갱신한다 — 동시 주문으로 현금이 음수가 되거나 초과 매도되지 않는다 (`cash >= 0`, `quantity > 0` CHECK가 최종 방어선).
-3. 수수료·세금은 아직 없다. 필요해지면 `trades.fee` 컬럼을 추가하고 현금 차감에 반영한다.
+2. 한 트랜잭션에서 계좌 행을 `SELECT ... FOR UPDATE`로 잠근 뒤 종목 통화 잔액·보유 수량을 확인하고 `account_balances`, `holdings`, `trades`를 함께 갱신한다 — 동시 주문·환전으로 잔액이 음수가 되거나 초과 매도되지 않는다 (`amount >= 0`, `quantity > 0` CHECK가 최종 방어선).
+3. 환전도 같은 계좌 잠금 아래에서 두 통화 잔액과 `exchanges`를 함께 갱신한다. 장 운영 시간·이벤트 기간 조건은 주문과 같고, KRW가 아닌 통화는 환율이 신선할 때(`rate_at`이 수집 주기 × 3 이내)만 체결한다.
+4. 수수료·세금은 아직 없다. 필요해지면 `trades.fee` 컬럼을 추가하고 현금 차감에 반영한다.
 
 ## 4. 평가액 스냅샷과 리더보드
 
 ### equity_snapshots
 
-장 마감 후(15:30 이후 첫 수집 루프) 모든 계좌의 평가액(`cash + Σ 보유수량 × 최신가`)을 날짜별로 적재한다. 월간·연간·이벤트 수익률의 기준점이며, 내 자산 추이 차트의 원천이다. 같은 날 다시 찍으면 덮어쓴다.
+장 마감 후(15:30 이후 첫 수집 루프) 모든 계좌의 KRW 평가액(`Σ 통화별 현금 × 환율 + Σ 보유수량 × 최신가 × 종목 통화 환율`)을 날짜별로 적재한다. 월간·연간·이벤트 수익률의 기준점이며, 내 자산 추이 차트의 원천이다. 같은 날 다시 찍으면 덮어쓴다.
 
 ```sql
 CREATE TABLE equity_snapshots (
     account_id    BIGINT        NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     snapshot_date DATE          NOT NULL,   -- KST 거래일
-    total_value   NUMERIC(18,2) NOT NULL,
+    total_value   NUMERIC(18,2) NOT NULL,   -- KRW 환산
     PRIMARY KEY (account_id, snapshot_date)
 );
 ```
 
 ### 리더보드 계산
 
-모두 **수익률** 순위다. 평가액 `V`는 진행 중인 구간이면 최신가 기준 현재 평가액, 끝난 구간이면 구간 안 마지막 스냅샷.
+모두 KRW 기준 **수익률** 순위다. 평가액 `V`는 진행 중인 구간이면 최신가 기준 현재 평가액, 끝난 구간이면 구간 안 마지막 스냅샷.
 
 | 리더보드 | 대상 계좌 | 기준 평가액 | 수익률 |
 | --- | --- | --- | --- |
@@ -192,6 +250,8 @@ predict-market과 같은 Redis를 쓰므로 키는 모두 `stock:` 접두어를 
 | 오더북·주문 테이블 없음, `trades`만 | 주문은 최신가로 즉시 전량 체결 — 주문 = 체결 |
 | `stocks.last_price` 캐시 | 체결·평가액·리더보드 계산을 종목 수만큼의 조인으로 끝낸다 |
 | 금액·가격 `NUMERIC` | 부동소수 오차 없이 현금·평단 계산 |
+| 통화별 현금(`account_balances`) + 환전(`exchanges`) | 종목은 시장 통화로 거래하고, 통화 간 이동은 환전으로만 — 환율 변동 손익이 실제처럼 생긴다 |
+| 기준 통화 KRW, `fx_rates`는 최신값만 | 시작 자금·수익률·리더보드를 한 통화로 비교. 환전 시점 환율은 `exchanges.rate`에 남는다 |
 | 이벤트는 전용 계좌 | 같은 시작 자금·같은 기간으로 공정 비교. 기본 계좌 성과와 섞이지 않음 |
 | 일별 `equity_snapshots` | 추가 입금이 없어 기간 수익률 = 평가액 비율. 기간 시작 평가액만 있으면 월간·연간·이벤트를 모두 계산 |
 | 실시간 리더보드는 Redis ZSET | 가격이 바뀔 때(수집 주기)만 순위가 바뀌므로 그때 한 번 계산하고 조회는 메모리에서 |

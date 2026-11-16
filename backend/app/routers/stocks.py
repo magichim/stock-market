@@ -21,6 +21,7 @@ async def list_stocks() -> dict:
                     "symbol": s.symbol,
                     "name": s.name,
                     "market": s.market,
+                    "currency": s.currency,
                     "price": float(s.last_price) if s.last_price is not None else None,
                     "prev_close": float(s.prev_close) if s.prev_close is not None else None,
                     "price_at": s.last_price_at,

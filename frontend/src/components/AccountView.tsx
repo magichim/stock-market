@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchAccount, fetchTrades, type Account, type Trade } from '../api'
-import { pct, trendClass, won } from '../format'
+import { money, pct, trendClass, won } from '../format'
 
 // 내 계좌 — 평가액·수익률, 보유 종목, 최근 체결
 export function AccountView({ event }: { event?: string }) {
@@ -31,10 +31,12 @@ export function AccountView({ event }: { event?: string }) {
           <span className="dim">수익률</span>
           <strong className={trendClass(account.return_rate)}>{pct(account.return_rate)}</strong>
         </div>
-        <div>
-          <span className="dim">현금</span>
-          <strong>{won(account.cash)}</strong>
-        </div>
+        {account.balances.map((b) => (
+          <div key={b.currency}>
+            <span className="dim">현금 {b.currency}</span>
+            <strong>{money(b.amount, b.currency)}</strong>
+          </div>
+        ))}
       </section>
 
       <section className="panel">
@@ -56,8 +58,8 @@ export function AccountView({ event }: { event?: string }) {
                 <tr key={h.symbol}>
                   <td>{h.name}</td>
                   <td className="num">{h.quantity.toLocaleString('ko-KR')}</td>
-                  <td className="num">{won(h.avg_price)}</td>
-                  <td className={`num ${trendClass(h.pnl)}`}>{won(h.pnl)}</td>
+                  <td className="num">{money(h.avg_price, h.currency)}</td>
+                  <td className={`num ${trendClass(h.pnl)}`}>{money(h.pnl, h.currency)}</td>
                 </tr>
               ))}
             </tbody>
@@ -74,8 +76,10 @@ export function AccountView({ event }: { event?: string }) {
             {trades.map((t) => (
               <li key={t.id}>
                 <span className={t.side === 'buy' ? 'up' : 'down'}>{t.side === 'buy' ? '매수' : '매도'}</span>
-                {t.name} {t.quantity}주 · {won(t.price)}
-                {t.realized_pnl !== null && <span className={trendClass(t.realized_pnl)}> · 실현 {won(t.realized_pnl)}</span>}
+                {t.name} {t.quantity}주 · {money(t.price, t.currency)}
+                {t.realized_pnl !== null && (
+                  <span className={trendClass(t.realized_pnl)}> · 실현 {money(t.realized_pnl, t.currency)}</span>
+                )}
                 <span className="dim"> · {new Date(t.executed_at).toLocaleString('ko-KR')}</span>
               </li>
             ))}

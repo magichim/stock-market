@@ -42,25 +42,37 @@ export interface Stock {
   symbol: string
   name: string
   market: string
+  currency: string
   price: number | null
   prev_close: number | null
   price_at: string | null
 }
 
+// 가격·평가액·손익은 종목 통화, value_krw만 KRW 환산
 export interface Holding {
   symbol: string
   name: string
+  currency: string
   quantity: number
   avg_price: number
   price: number
   value: number
   pnl: number
+  value_krw: number
+}
+
+// 통화별 현금 — value는 KRW 환산 (rate = 1단위당 KRW)
+export interface Balance {
+  currency: string
+  amount: number
+  rate: number
+  value: number
 }
 
 export interface Account {
   event: string | null
   initial_cash: number
-  cash: number
+  balances: Balance[]
   holdings: Holding[]
   total_value: number
   return_rate: number
@@ -70,6 +82,7 @@ export interface Trade {
   id: number
   symbol: string
   name: string
+  currency: string
   side: 'buy' | 'sell'
   quantity: number
   price: number

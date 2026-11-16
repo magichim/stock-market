@@ -1,4 +1,4 @@
-"""가격 수집기 — 장 운영 중 PRICE_INTERVAL_SECONDS마다 활성 종목의 현재가를 적재하고,
+"""가격 수집기 — 장 운영 중 PRICE_INTERVAL_SECONDS마다 활성 종목의 현재가와 환율을 적재하고,
 장 마감 후 탈퇴 사용자 정리와 평가액 스냅샷을 하루 한 번 한다.
 
 워커가 여러 개여도 Redis 락으로 한 주기에 한 워커만 수집한다.
@@ -19,7 +19,7 @@ from .config import settings
 from .db import SessionLocal
 from .leaderboard import ACCOUNT_VALUES, refresh_realtime
 from .market import is_after_close, is_market_open, now_kst
-from .models import PriceTick, Stock
+from .models import FxRate, PriceTick, Stock
 from .users import purge_deleted_users
 
 log = logging.getLogger(__name__)
@@ -30,14 +30,24 @@ class PriceProvider(Protocol):
         """종목코드 → 현재가. 받지 못한 종목은 빼고 반환한다."""
         ...
 
+    async def fetch_fx(self, rates: list[FxRate]) -> dict[str, Decimal]:
+        """통화 → 1단위당 KRW. 받지 못한 통화는 빼고 반환한다."""
+        ...
+
 
 class MockProvider:
     """랜덤 워크 — 직전가에서 ±1% 안에서 움직인다. 실 거래소 API 연동 전 개발용."""
 
     async def fetch(self, stocks: list[Stock]) -> dict[str, Decimal]:
         return {
-            s.symbol: max(Decimal(1), ((s.last_price or Decimal(50_000)) * Decimal(1 + random.uniform(-0.01, 0.01))).quantize(Decimal(1)))
+            s.symbol: max(Decimal(1), ((s.last_price or Decimal(50_000 if s.currency == "KRW" else 100)) * Decimal(1 + random.uniform(-0.01, 0.01))).quantize(Decimal(1)))
             for s in stocks
+        }
+
+    async def fetch_fx(self, rates: list[FxRate]) -> dict[str, Decimal]:
+        return {
+            r.currency: ((r.rate or Decimal(1400)) * Decimal(1 + random.uniform(-0.002, 0.002))).quantize(Decimal("0.0001"))
+            for r in rates
         }
 
 
@@ -60,6 +70,19 @@ async def collect_prices(session: AsyncSession) -> None:
             s.prev_close = s.last_price
         s.last_price, s.last_price_at = price, now
         session.add(PriceTick(stock_id=s.id, price=price, collected_at=now))
+    await session.commit()
+
+
+async def collect_fx(session: AsyncSession) -> None:
+    """KRW(기준, 1 고정)를 뺀 통화의 최신 환율을 갱신한다."""
+    rates = list(await session.scalars(select(FxRate).where(FxRate.currency != "KRW")))
+    if not rates:
+        return
+    fetched = await provider.fetch_fx(rates)
+    now = datetime.now(timezone.utc)
+    for r in rates:
+        if r.currency in fetched:
+            r.rate, r.rate_at = fetched[r.currency], now
     await session.commit()
 
 
@@ -96,6 +119,7 @@ async def run_collector(redis: Redis) -> None:
         try:
             if is_market_open(now) and await redis.set("stock:lock:collect", "1", nx=True, ex=max(interval - 1, 1)):
                 async with SessionLocal() as session:
+                    await collect_fx(session)
                     await collect_prices(session)
                     await refresh_realtime(session, redis)
             if is_after_close(now):

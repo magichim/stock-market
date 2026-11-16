@@ -28,6 +28,19 @@ class Base(DeclarativeBase):
 # - 순서대로 실행된다. 모든 환경(로컬·운영)에 반영되기 전에는 지우지 않는다
 SCHEMA_PATCHES: list[str] = [
     # 예: "ALTER TABLE trades ADD COLUMN IF NOT EXISTS fee NUMERIC(18,2) NOT NULL DEFAULT 0",
+    # 다통화 — 종목 통화, 환율 기준 행(KRW = 1, 시드보다 먼저 필요한 FK 대상)
+    "ALTER TABLE stocks ADD COLUMN IF NOT EXISTS currency VARCHAR(3) NOT NULL DEFAULT 'KRW'",
+    "INSERT INTO fx_rates (currency, rate) VALUES ('KRW', 1) ON CONFLICT DO NOTHING",
+    # accounts.cash → account_balances(KRW)로 옮기고, 원래 컬럼은 지우지 않고 legacy_cash로 남긴다 (모든 환경 반영 후 삭제)
+    """DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = current_schema() AND table_name = 'accounts' AND column_name = 'cash') THEN
+            INSERT INTO account_balances (account_id, currency, amount)
+                SELECT id, 'KRW', cash FROM accounts ON CONFLICT DO NOTHING;
+            ALTER TABLE accounts RENAME COLUMN cash TO legacy_cash;
+            ALTER TABLE accounts ALTER COLUMN legacy_cash DROP NOT NULL;
+        END IF;
+    END $$""",
 ]
 
 

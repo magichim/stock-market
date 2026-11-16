@@ -5,16 +5,18 @@ import { LeaderboardView } from './components/LeaderboardView'
 import { StocksView } from './components/StocksView'
 
 type Tab = 'stocks' | 'account' | 'leaderboard'
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'stocks', label: '종목' },
-  { key: 'account', label: '내 계좌' },
-  { key: 'leaderboard', label: '리더보드' },
+const TABS: { key: Tab; label: string; path: string }[] = [
+  { key: 'stocks', label: '종목', path: '/' },
+  { key: 'account', label: '내 계좌', path: '/account' },
+  { key: 'leaderboard', label: '리더보드', path: '/leaderboard' },
 ]
+// URL 경로 → 탭. 모르는 경로는 종목 탭 (서버는 모든 경로에 index.html을 준다)
+const tabFromPath = () => TABS.find((t) => t.path === window.location.pathname)?.key ?? 'stocks'
 
 export function App() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<Tab>('stocks')
+  const [tab, setTab] = useState<Tab>(tabFromPath)
   const [events, setEvents] = useState<StockEvent[]>([])
   // 거래할 계좌 — 빈 값이면 기본 계좌, 아니면 이벤트 slug
   const [event, setEvent] = useState('')
@@ -26,6 +28,10 @@ export function App() {
       .catch(() => setUser(null))
       .finally(() => setLoading(false))
     fetchEvents().then(setEvents, () => setEvents([]))
+    // 뒤로·앞으로 가기
+    const onPop = () => setTab(tabFromPath())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
   }, [])
 
   // 사용자 드롭다운 — header-actions 밖을 누르면 닫힌다
@@ -51,6 +57,7 @@ export function App() {
       key={t.key}
       className={t.key === tab ? 'active' : ''}
       onClick={() => {
+        if (t.key !== tab) window.history.pushState(null, '', t.path)
         setTab(t.key)
         setMenuOpen(false)
       }}
