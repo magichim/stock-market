@@ -1,32 +1,87 @@
-/* 전역 토큰·기본 요소 (body, button) */
+/* 전역 기본값 — reset, 색상 변수, body, 앱 셸(.app/.main), 공통 유틸 */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
 :root {
-  --bg: #f7f7f8;
-  --fg: #1a1a1a;
-  --dim: #6b6b6b;
-  --line: #e2e2e5;
-  --accent: #2f6fed;
-  --error: #d33;
-  --up: #e03131;
-  --down: #1c64f2;
-  font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
-  color: var(--fg);
-  background: var(--bg);
+  --main: #282828; /* 메인 컬러 */
+  --main-bg: #ededed;
+  --sub: #800000; /* 세컨더리 컬러 — 로고 'SAJA' 등 주요 포인트에만 */
+  --red: #e5484d;
+  --blue: #3182f6;
+  --text: #282828;
+  --text-dim: #6b7684;
+  --border: #e5e8eb;
+  --bg: #f2f4f7; /* 흰색 패널이 테두리 없이 구분되도록 살짝 어둡게 */
+  --up: var(--red); /* 등락 색 — 상승 빨강, 하락 파랑 */
+  --down: var(--blue);
 }
 
 body {
-  margin: 0;
+  word-break: keep-all; /* 한글 문장이 단어 중간에서 줄바꿈되지 않게 */
+  font-family:
+    'Pretendard Variable',
+    Pretendard,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Noto Sans KR',
+    sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden; /* clip 미지원 브라우저 fallback */
+  overflow-x: clip;
+}
+
+html {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+/* iOS Safari는 button 기본 글자색을 시스템 파랑으로 렌더링하므로 본문 색을 상속시킨다 */
+button,
+input,
+select {
+  color: inherit;
+  font: inherit;
+}
+
+/* 앱 셸 — main이 헤더를 뺀 나머지 화면 높이를 차지한다 */
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 24px 48px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .dim {
-  color: var(--dim);
-  font-size: 14px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .error {
-  color: var(--error);
+  color: var(--red);
 }
 
-/* 등락 색 — 상승 빨강, 하락 파랑 */
 .up {
   color: var(--up);
 }
@@ -35,24 +90,15 @@ body {
   color: var(--down);
 }
 
-button,
-.button {
-  padding: 8px 14px;
-  border: 1px solid var(--accent);
-  border-radius: 6px;
-  background: var(--accent);
-  color: #fff;
-  font: inherit;
-  text-decoration: none;
-  cursor: pointer;
-}
+@media (max-width: 768px) {
+  .main {
+    padding: 12px 12px 40px;
+  }
 
-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-button.secondary {
-  background: #fff;
-  color: var(--accent);
+  /* iOS Safari는 16px 미만 입력 요소에 포커스하면 화면을 자동 확대한다 (#root로 개별 규칙보다 우선) */
+  #root input,
+  #root select,
+  #root textarea {
+    font-size: 16px;
+  }
 }

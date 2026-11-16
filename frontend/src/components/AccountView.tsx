@@ -22,7 +22,7 @@ export function AccountView({ event }: { event?: string }) {
 
   return (
     <>
-      <section className="card summary">
+      <section className="panel summary">
         <div>
           <span className="dim">총 평가액</span>
           <strong>{won(account.total_value)}</strong>
@@ -37,7 +37,7 @@ export function AccountView({ event }: { event?: string }) {
         </div>
       </section>
 
-      <section className="card">
+      <section className="panel">
         <h2>보유 종목</h2>
         {account.holdings.length === 0 ? (
           <p className="dim">보유 종목이 없습니다.</p>
@@ -65,7 +65,7 @@ export function AccountView({ event }: { event?: string }) {
         )}
       </section>
 
-      <section className="card">
+      <section className="panel">
         <h2>최근 체결</h2>
         {trades.length === 0 ? (
           <p className="dim">체결 내역이 없습니다.</p>

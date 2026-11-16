@@ -33,6 +33,7 @@
 
 ## Styles
 
+- 색은 `frontend/src/styles/base.css`의 변수를 쓴다. 메인 컬러 `--main`(#282828), 세컨더리 컬러 `--sub`(#800000)는 로고 'SAJA' 같은 주요 포인트에만 가끔 쓴다.
 - `frontend/src/index.css`는 `@import` 목록만 둔다. 실제 스타일은 `frontend/src/styles/*.css`에 기능·컴포넌트별로 있다 (각 파일 첫 줄 주석에 담당 컴포넌트).
 - import 순서가 cascade 순서다. 순서를 바꾸거나, 뒤 파일이 덮어쓰는 규칙을 앞 파일로 옮기지 않는다.
 - 새 기능은 새 파일을 만들고 관련 파일 뒤에 `@import`를 추가한다. 반응형 `@media`도 같은 파일 안, 해당 규칙 뒤에 둔다.

@@ -23,14 +23,14 @@ export function LeaderboardView({ events }: { events: StockEvent[] }) {
   }, [query])
 
   return (
-    <section className="card">
-      <div className="chips">
+    <>
+      <nav className="filter-tabs">
         {tabs.map((t) => (
-          <button key={t.key} className={t.key === query ? '' : 'secondary'} onClick={() => setQuery(t.key)}>
+          <button key={t.key} className={t.key === query ? 'active' : ''} onClick={() => setQuery(t.key)}>
             {t.label}
           </button>
         ))}
-      </div>
+      </nav>
       {error && <p className="error">{error}</p>}
       {rows.length === 0 ? (
         <p className="dim">아직 순위가 없습니다.</p>
@@ -40,11 +40,11 @@ export function LeaderboardView({ events }: { events: StockEvent[] }) {
             <li key={i}>
               <span className="rank">{i + 1}</span>
               <span className="name">{r.display_name ?? r.username ?? '—'}</span>
-              <span className={trendClass(r.return_rate)}>{pct(r.return_rate)}</span>
+              <span className={`rate ${trendClass(r.return_rate)}`}>{pct(r.return_rate)}</span>
             </li>
           ))}
         </ol>
       )}
-    </section>
+    </>
   )
 }

@@ -36,7 +36,7 @@ export function StocksView({ loggedIn, event }: { loggedIn: boolean; event?: str
   }
 
   return (
-    <section className="card">
+    <section className="panel">
       <p className="dim">{marketOpen ? '장 운영 중 · 주문은 최신가로 즉시 체결됩니다' : '장 마감 · 평일 09:00–15:30에 거래할 수 있습니다'}</p>
       {message && <p className="notice">{message}</p>}
       <table className="stocks">
@@ -63,10 +63,10 @@ export function StocksView({ loggedIn, event }: { loggedIn: boolean; event?: str
                       value={quantities[s.symbol] ?? 1}
                       onChange={(e) => setQuantities({ ...quantities, [s.symbol]: Number(e.target.value) })}
                     />
-                    <button disabled={!marketOpen} onClick={() => trade(s.symbol, 'buy')}>
+                    <button className="btn btn-primary" disabled={!marketOpen} onClick={() => trade(s.symbol, 'buy')}>
                       매수
                     </button>
-                    <button className="secondary" disabled={!marketOpen} onClick={() => trade(s.symbol, 'sell')}>
+                    <button className="btn btn-outline" disabled={!marketOpen} onClick={() => trade(s.symbol, 'sell')}>
                       매도
                     </button>
                   </td>
