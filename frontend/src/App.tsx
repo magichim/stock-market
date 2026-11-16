@@ -18,6 +18,7 @@ export function App() {
   const [events, setEvents] = useState<StockEvent[]>([])
   // 거래할 계좌 — 빈 값이면 기본 계좌, 아니면 이벤트 slug
   const [event, setEvent] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     fetchMe()
@@ -27,7 +28,18 @@ export function App() {
     fetchEvents().then(setEvents, () => setEvents([]))
   }, [])
 
+  // 사용자 드롭다운 — header-actions 밖을 누르면 닫힌다
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = (e: PointerEvent) => {
+      if (!(e.target as Element).closest('.header-actions')) setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', close)
+    return () => document.removeEventListener('pointerdown', close)
+  }, [menuOpen])
+
   const handleLogout = async () => {
+    setMenuOpen(false)
     await logout()
     setUser(null)
   }
@@ -45,15 +57,18 @@ export function App() {
           <div className="header-actions">
             {loading ? null : user ? (
               <>
-                <span className="header-user">
+                {/* 사용자(아바타·이름)를 누르면 로그아웃 메뉴가 열린다 — PC·모바일 공통 */}
+                <button className="header-user" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
                   <span className="header-avatar">
                     {user.avatar_url ? <img src={user.avatar_url} alt="" /> : name.slice(0, 1)}
                   </span>
                   <span className="header-user-name">{name}</span>
-                </span>
-                <button className="btn btn-ghost" onClick={handleLogout}>
-                  로그아웃
                 </button>
+                {menuOpen && (
+                  <nav className="nav">
+                    <button onClick={handleLogout}>로그아웃</button>
+                  </nav>
+                )}
               </>
             ) : (
               <a className="btn btn-primary" href={loginUrl()}>
