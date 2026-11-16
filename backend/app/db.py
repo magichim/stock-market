@@ -1,6 +1,7 @@
 import asyncpg
+from sqlalchemy import text
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 from .config import settings
@@ -19,6 +20,20 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 class Base(DeclarativeBase):
     pass
+
+
+# create_all은 없는 테이블만 만들고 기존 테이블은 바꾸지 않는다 — 기존 테이블의 컬럼·인덱스·제약 변경은
+# models.py를 고치고 여기에 같은 변경을 멱등 SQL로 덧붙인다 (새 DB는 create_all, 기존 DB는 이 패치로 맞춰진다).
+# - 여러 번 실행해도 안전해야 한다 (ADD COLUMN IF NOT EXISTS, CREATE INDEX IF NOT EXISTS, DO 블록 등)
+# - 순서대로 실행된다. 모든 환경(로컬·운영)에 반영되기 전에는 지우지 않는다
+SCHEMA_PATCHES: list[str] = [
+    # 예: "ALTER TABLE trades ADD COLUMN IF NOT EXISTS fee NUMERIC(18,2) NOT NULL DEFAULT 0",
+]
+
+
+async def apply_schema_patches(conn: AsyncConnection) -> None:
+    for sql in SCHEMA_PATCHES:
+        await conn.execute(text(sql))
 
 
 async def ensure_database() -> None:

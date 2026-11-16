@@ -22,6 +22,11 @@
 - `JWT_SECRET` 등 비밀값은 코드·저장소에 넣지 않고 `backend/.env`(git 제외)로만 주입한다.
 - 인증 동작을 바꾸면 `AUTH.md`도 함께 고친다.
 
+## DB Schema
+
+- 테이블은 앱 시작 시 `create_all`로 생성된다 — 없는 테이블만 만들고 기존 테이블은 바꾸지 않는다.
+- 기존 테이블의 컬럼·인덱스·제약을 바꿀 때는 `backend/app/models.py`와 `backend/app/db.py`의 `SCHEMA_PATCHES`(멱등 SQL)를 함께 고치고, `DB_DESIGN.md`도 갱신한다.
+
 ## UI Rules
 
 - **No emoji in UI** — Never use emoji in user-facing UI text or code. Use plain symbols (•, ·, — 등) instead.
