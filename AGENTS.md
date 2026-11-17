@@ -30,6 +30,7 @@
 ## UI Rules
 
 - **No emoji in UI** — Never use emoji in user-facing UI text or code. Use plain symbols (•, ·, — 등) instead.
+- **No loading text** — '불러오는 중…' 같은 로딩 중 텍스트를 화면에 표시하지 않는다. 로딩 중에는 아무것도 렌더링하지 않는다(`null`).
 
 ## Styles
 

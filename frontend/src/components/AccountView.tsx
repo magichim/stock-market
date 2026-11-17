@@ -18,7 +18,7 @@ export function AccountView({ event }: { event?: string }) {
   }, [event])
 
   if (error) return <p className="error">{error}</p>
-  if (!account) return <p className="dim">불러오는 중…</p>
+  if (!account) return null
 
   return (
     <>
