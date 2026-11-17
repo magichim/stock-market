@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchStocks, placeTrade, type Stock } from '../api'
 import { money, pct, trendClass } from '../format'
 
-// 종목 목록 + 시장가 매수·매도. 가격은 30초마다 다시 읽는다 (서버 수집 주기 기본 60초)
+// 종목 목록 + 시장가 매수·매도. 가격은 30초마다 다시 읽는다 (서버 수집 주기 기본 1시간)
 export function StocksView({ loggedIn, event }: { loggedIn: boolean; event?: string }) {
   const [stocks, setStocks] = useState<Stock[]>([])
   const [marketOpen, setMarketOpen] = useState(false)

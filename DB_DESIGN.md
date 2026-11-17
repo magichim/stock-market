@@ -60,7 +60,7 @@ CREATE TABLE stocks (
 
 ### price_ticks
 
-수집기가 주기(`PRICE_INTERVAL_SECONDS`, 기본 60초)마다 적재하는 append-only 시계열. 차트의 원천이며, 각 체결이 어떤 가격으로 이뤄졌는지 `trades.tick_id`로 추적한다.
+수집기가 주기(`PRICE_INTERVAL_SECONDS`, 기본 1시간)마다 적재하는 append-only 시계열. 차트의 원천이며, 각 체결이 어떤 가격으로 이뤄졌는지 `trades.tick_id`로 추적한다.
 
 ```sql
 CREATE TABLE price_ticks (
@@ -72,7 +72,7 @@ CREATE TABLE price_ticks (
 );
 ```
 
-규모: 종목 30개 × 390틱/일 × 250거래일 ≈ 연 300만 행. 장기 차트가 필요해지면 일봉 집계 테이블을 추가한다.
+규모: 종목 30개 × 7틱/일(1시간 주기) × 250거래일 ≈ 연 5만 행. 주기를 1분으로 줄이면 연 300만 행 수준. 장기 차트가 필요해지면 일봉 집계 테이블을 추가한다.
 
 ### fx_rates
 

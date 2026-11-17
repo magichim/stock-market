@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # 가격 공급자. mock은 랜덤 워크 (실 거래소 API 연동 전 개발용)
     price_provider: Literal["mock"] = "mock"
     # 가격 수집 주기(초)
-    price_interval_seconds: int = 60
+    price_interval_seconds: int = 3600  # 수집 주기 (1시간)
     # 장 운영 시간 검사를 끈다 — 로컬 개발에서 밤·주말에도 수집·거래하려면 true
     ignore_market_hours: bool = False
     # 기본 계좌 시작 자금 (원)
