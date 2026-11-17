@@ -3,7 +3,15 @@ import { fetchStocks, placeTrade, type Stock } from '../api'
 import { money, pct, trendClass } from '../format'
 
 // 종목 목록 + 시장가 매수·매도. 가격은 30초마다 다시 읽는다 (서버 수집 주기 기본 1시간)
-export function StocksView({ loggedIn, event }: { loggedIn: boolean; event?: string }) {
+export function StocksView({
+  loggedIn,
+  event,
+  focus,
+}: {
+  loggedIn: boolean
+  event?: string
+  focus?: { symbol: string } | null
+}) {
   const [stocks, setStocks] = useState<Stock[]>([])
   const [marketOpen, setMarketOpen] = useState(false)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
@@ -25,6 +33,17 @@ export function StocksView({ loggedIn, event }: { loggedIn: boolean; event?: str
     return () => clearInterval(timer)
   }, [load])
 
+  // 검색에서 고른 종목으로 스크롤 — 목록이 아직 없으면 불러온 뒤에
+  const [focused, setFocused] = useState<string | null>(null)
+  const loaded = stocks.length > 0
+  useEffect(() => {
+    if (!focus || !loaded) return
+    document.getElementById(`stock-${focus.symbol}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setFocused(focus.symbol)
+    const timer = setTimeout(() => setFocused(null), 1600)
+    return () => clearTimeout(timer)
+  }, [focus, loaded])
+
   const trade = async (symbol: string, side: 'buy' | 'sell') => {
     const quantity = quantities[symbol] || 1
     try {
@@ -43,7 +62,7 @@ export function StocksView({ loggedIn, event }: { loggedIn: boolean; event?: str
         {stocks.map((s) => {
           const change = s.price && s.prev_close ? s.price / s.prev_close - 1 : 0
           return (
-            <li key={s.symbol} className="stock">
+            <li key={s.symbol} id={`stock-${s.symbol}`} className={s.symbol === focused ? 'stock focused' : 'stock'}>
               <div className="stock-info">
                 <strong>{s.name}</strong>
                 <div className="dim">

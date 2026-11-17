@@ -117,6 +117,18 @@ async function json<T>(res: Response): Promise<T> {
 
 const eventQuery = (event?: string) => (event ? `?event=${encodeURIComponent(event)}` : '')
 
+export interface StockHit {
+  symbol: string
+  name: string
+  market: string
+  currency: string
+  price: number | null
+}
+
+// 종목 검색 — signal로 이전 요청을 취소한다
+export const searchStocks = async (q: string, signal?: AbortSignal) =>
+  json<StockHit[]>(await send(`/api/stocks/search?q=${encodeURIComponent(q)}`, { signal }))
+
 export const fetchStocks = async () => json<{ market_open: boolean; stocks: Stock[] }>(await send('/api/stocks'))
 export const fetchEvents = async () => json<StockEvent[]>(await send('/api/events'))
 export const fetchAccount = async (event?: string) => json<Account>(await send(`/api/account${eventQuery(event)}`))

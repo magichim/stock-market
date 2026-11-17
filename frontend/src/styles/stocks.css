@@ -37,6 +37,20 @@
   border-radius: 8px;
 }
 
+/* 검색으로 이동한 종목 — 잠시 강조 (StocksView) */
+.stock.focused {
+  animation: stock-focus 1.6s ease-out;
+}
+
+@keyframes stock-focus {
+  from {
+    background: var(--main-bg);
+  }
+  to {
+    background: transparent;
+  }
+}
+
 @media (max-width: 640px) {
   .stock {
     flex-wrap: wrap;

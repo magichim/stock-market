@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchEvents, fetchMe, loginUrl, logout, type StockEvent, type User } from './api'
 import { AccountView } from './components/AccountView'
 import { LeaderboardView } from './components/LeaderboardView'
+import { StockSearch } from './components/StockSearch'
 import { StocksView } from './components/StocksView'
 
 type Tab = 'stocks' | 'account' | 'leaderboard'
@@ -21,6 +22,8 @@ export function App() {
   // 거래할 계좌 — 빈 값이면 기본 계좌, 아니면 이벤트 slug
   const [event, setEvent] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  // 검색에서 고른 종목 — 매번 새 객체라 같은 종목을 다시 골라도 이동한다
+  const [focus, setFocus] = useState<{ symbol: string } | null>(null)
 
   useEffect(() => {
     fetchMe()
@@ -67,6 +70,13 @@ export function App() {
   ))
   const toggleMenu = () => setMenuOpen((open) => !open)
 
+  // 검색 결과 선택 — 종목 탭으로 가서 그 종목으로 스크롤
+  const goToStock = (symbol: string) => {
+    if (tab !== 'stocks') window.history.pushState(null, '', '/')
+    setTab('stocks')
+    setFocus({ symbol })
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -76,6 +86,7 @@ export function App() {
             <span className="logo-sub">Stock</span>
           </a>
           <nav className="nav">{tabButtons}</nav>
+          <StockSearch onSelect={goToStock} />
           <div className="header-actions">
             {loading ? null : (
               <>
@@ -126,7 +137,7 @@ export function App() {
           </div>
         )}
 
-        {tab === 'stocks' && <StocksView loggedIn={!!user} event={event || undefined} />}
+        {tab === 'stocks' && <StocksView loggedIn={!!user} event={event || undefined} focus={focus} />}
         {tab === 'account' &&
           (user ? <AccountView event={event || undefined} /> : <p className="dim">로그인하면 내 계좌를 볼 수 있습니다.</p>)}
         {tab === 'leaderboard' && <LeaderboardView events={events} />}

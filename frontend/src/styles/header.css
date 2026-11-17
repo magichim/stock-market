@@ -18,9 +18,9 @@
 }
 
 .logo {
-  display: flex;
-  align-items: center;
+  display: block;
   font-size: 17px;
+  line-height: 1;
   font-weight: 800;
   text-decoration: none;
   color: var(--text);
@@ -32,7 +32,11 @@
 }
 
 .logo .logo-sub {
-  margin-left: 6px;
+  /* 'AGISAJA' 아래 줄, 오른쪽 끝을 맞춘다 */
+  display: block;
+  margin-top: 1px;
+  text-align: right;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-dim);
 }

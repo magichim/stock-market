@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from ..db import SessionLocal
 from ..market import is_market_open, now_kst
@@ -29,6 +29,40 @@ async def list_stocks() -> dict:
                 for s in stocks
             ],
         }
+
+
+@router.get("/search")
+async def search(q: str = Query(min_length=1, max_length=50), limit: int = Query(10, ge=1, le=30)) -> list[dict]:
+    """종목 검색 — 종목코드 앞부분 또는 이름 일부. 코드 완전 일치 → 이름 앞부분 일치 → 표시 순서."""
+    q = q.strip()
+    if not q:
+        return []
+    like = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    async with SessionLocal() as session:
+        stocks = await session.scalars(
+            select(Stock)
+            .where(
+                Stock.is_active,
+                or_(Stock.symbol.ilike(f"{like}%", escape="\\"), Stock.name.ilike(f"%{like}%", escape="\\")),
+            )
+            .order_by(
+                func.upper(Stock.symbol) != q.upper(),
+                ~Stock.name.ilike(f"{like}%", escape="\\"),
+                Stock.display_order,
+                Stock.symbol,
+            )
+            .limit(limit)
+        )
+        return [
+            {
+                "symbol": s.symbol,
+                "name": s.name,
+                "market": s.market,
+                "currency": s.currency,
+                "price": float(s.last_price) if s.last_price is not None else None,
+            }
+            for s in stocks
+        ]
 
 
 @router.get("/{symbol}/ticks")
