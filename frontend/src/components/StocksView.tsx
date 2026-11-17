@@ -16,6 +16,8 @@ export function StocksView({
   const [marketOpen, setMarketOpen] = useState(false)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [message, setMessage] = useState('')
+  // 진행 중인 주문 — 끝날 때까지 모든 주문 버튼을 막고, 누른 버튼은 '매수 중'처럼 표시한다
+  const [pending, setPending] = useState<{ symbol: string; side: 'buy' | 'sell' } | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -46,13 +48,18 @@ export function StocksView({
 
   const trade = async (symbol: string, side: 'buy' | 'sell') => {
     const quantity = quantities[symbol] || 1
+    setPending({ symbol, side })
     try {
       const t = await placeTrade({ symbol, side, quantity, event })
       setMessage(`${t.name} ${t.quantity}주 ${side === 'buy' ? '매수' : '매도'} 체결 · ${money(t.price, t.currency)}`)
     } catch (err) {
       setMessage(err instanceof Error ? err.message : '주문에 실패했습니다.')
+    } finally {
+      setPending(null)
     }
   }
+  const sideLabel = (symbol: string, side: 'buy' | 'sell') =>
+    `${side === 'buy' ? '매수' : '매도'}${pending?.symbol === symbol && pending.side === side ? ' 중' : ''}`
 
   return (
     <section className="panel">
@@ -81,11 +88,11 @@ export function StocksView({
                     value={quantities[s.symbol] ?? 1}
                     onChange={(e) => setQuantities({ ...quantities, [s.symbol]: Number(e.target.value) })}
                   />
-                  <button className="btn btn-primary" disabled={!marketOpen} onClick={() => trade(s.symbol, 'buy')}>
-                    매수
+                  <button className="btn btn-primary" disabled={!marketOpen || !!pending} onClick={() => trade(s.symbol, 'buy')}>
+                    {sideLabel(s.symbol, 'buy')}
                   </button>
-                  <button className="btn btn-outline" disabled={!marketOpen} onClick={() => trade(s.symbol, 'sell')}>
-                    매도
+                  <button className="btn btn-outline" disabled={!marketOpen || !!pending} onClick={() => trade(s.symbol, 'sell')}>
+                    {sideLabel(s.symbol, 'sell')}
                   </button>
                 </div>
               )}

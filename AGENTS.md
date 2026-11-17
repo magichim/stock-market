@@ -31,6 +31,7 @@
 
 - **No emoji in UI** — Never use emoji in user-facing UI text or code. Use plain symbols (•, ·, — 등) instead.
 - **No loading text** — '불러오는 중…' 같은 로딩 중 텍스트를 화면에 표시하지 않는다. 로딩 중에는 아무것도 렌더링하지 않는다(`null`).
+  - 예외: 요청을 보낸 버튼은 끝날 때까지 `disabled`로 막고 라벨을 '매수 중'처럼 'ㅇㅇ 중'으로 바꿔 표시한다.
 
 ## Styles
 
