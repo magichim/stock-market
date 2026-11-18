@@ -4,8 +4,9 @@
 
 ## 위치와 표시
 
-- 파일: `frontend/public/logos/{symbol}.svg` — 파일명은 `stocks.symbol` 그대로 (`005930.svg`, `AAPL.svg`)
-- 표시: `frontend/src/components/StockLogo.tsx`가 `/logos/{symbol}.svg`를 읽는다. 파일이 없으면 종목명 첫 글자를 회색 칸에 보여주므로, 로고가 없어도 화면은 깨지지 않는다.
+- 파일: `frontend/src/assets/stock-logo/{symbol}.svg` — 파일명은 `stocks.symbol` 그대로 (`005930.svg`, `AAPL.svg`)
+- 표시: `frontend/src/components/StockLogo.tsx`가 `import.meta.glob`으로 이 폴더를 모두 읽는다. 파일을 넣기만 하면 되고 코드에 등록할 필요는 없다. 없는 종목은 종목명 첫 글자를 회색 칸에 보여준다.
+- 빌드: 해시 없이 `dist/assets/stock-logo/{symbol}.svg`로 나가 `/assets/stock-logo/{symbol}.svg`로 접근된다. `frontend/vite.config.ts`에서 인라인을 끄고(`assetsInlineLimit`) 파일명을 고정한다(`assetFileNames`). 이름이 고정이라 로고를 바꾸면 브라우저 캐시가 남을 수 있다.
 - 크기: 목록 40px, 검색 32px, 보유 종목 28px. 28px에서도 알아볼 수 있어야 한다.
 
 ## SVG 규칙

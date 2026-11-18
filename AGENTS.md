@@ -35,7 +35,7 @@
 
 ## Stock Logos
 
-- 종목 로고는 `frontend/public/logos/{symbol}.svg`. 만들거나 고칠 때는 `LOGO.md`를 따른다 (정사각형 SVG, 모서리는 CSS).
+- 종목 로고는 `frontend/src/assets/stock-logo/{symbol}.svg`. 만들거나 고칠 때는 `LOGO.md`를 따른다 (정사각형 SVG, 모서리는 CSS).
 - 미국 상장사 로고는 https://logostream.dev/logos/companies 를 주요 참고로 한다.
 
 ## Styles
