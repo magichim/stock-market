@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { fetchStocks, placeTrade, type Stock } from '../api'
 import { money, pct, trendClass } from '../format'
+import { StockLogo } from './StockLogo'
 
 // 종목 목록 + 시장가 매수·매도. 가격은 30초마다 다시 읽는다 (서버 수집 주기 기본 1시간)
 export function StocksView({
@@ -70,6 +71,7 @@ export function StocksView({
           const change = s.price && s.prev_close ? s.price / s.prev_close - 1 : 0
           return (
             <li key={s.symbol} id={`stock-${s.symbol}`} className={s.symbol === focused ? 'stock focused' : 'stock'}>
+              <StockLogo symbol={s.symbol} name={s.name} size={40} />
               <div className="stock-info">
                 <strong>{s.name}</strong>
                 <div className="dim">

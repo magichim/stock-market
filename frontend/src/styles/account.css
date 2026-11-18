@@ -28,6 +28,13 @@
   white-space: nowrap;
 }
 
+/* 보유 종목 — 로고 + 종목명 */
+.holding-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .holdings th {
   font-size: 12px;
   font-weight: 600;

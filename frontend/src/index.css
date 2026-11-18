@@ -1,6 +1,7 @@
 /* 스타일 진입점 — 순서가 곧 cascade 순서이므로 바꾸지 않는다. 새 파일은 관련 파일 뒤에 추가 */
 @import './styles/base.css';
 @import './styles/ui.css';
+@import './styles/logo.css';
 @import './styles/header.css';
 @import './styles/search.css';
 @import './styles/stocks.css';

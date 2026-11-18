@@ -1,0 +1,17 @@
+/* 종목 로고 (StockLogo) — SVG는 정사각형, 모서리·테두리는 여기서 준다 */
+.stock-logo {
+  flex: none;
+  display: block;
+  border-radius: 30%;
+  outline: 1px solid rgba(0, 0, 0, 0.06); /* 흰 바탕 로고도 윤곽이 보이게 */
+  outline-offset: -1px;
+}
+
+.stock-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--main-bg);
+  color: var(--text-dim);
+  font-weight: 700;
+}

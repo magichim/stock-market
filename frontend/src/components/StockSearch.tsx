@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { searchStocks, type StockHit } from '../api'
 import { money } from '../format'
+import { StockLogo } from './StockLogo'
 
 const DEBOUNCE_MS = 250
 
@@ -88,6 +89,7 @@ export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }
                   onMouseEnter={() => setActive(i)}
                   onClick={() => select(h)}
                 >
+                  <StockLogo symbol={h.symbol} name={h.name} size={32} />
                   <span className="search-name">
                     <strong>{h.name}</strong>
                     <span className="dim">

@@ -33,6 +33,11 @@
 - **No loading text** — '불러오는 중…' 같은 로딩 중 텍스트를 화면에 표시하지 않는다. 로딩 중에는 아무것도 렌더링하지 않는다(`null`).
   - 예외: 요청을 보낸 버튼은 끝날 때까지 `disabled`로 막고 라벨을 '매수 중'처럼 'ㅇㅇ 중'으로 바꿔 표시한다.
 
+## Stock Logos
+
+- 종목 로고는 `frontend/public/logos/{symbol}.svg`. 만들거나 고칠 때는 `LOGO.md`를 따른다 (정사각형 SVG, 모서리는 CSS).
+- 미국 상장사 로고는 https://logostream.dev/logos/companies 를 주요 참고로 한다.
+
 ## Styles
 
 - 색은 `frontend/src/styles/base.css`의 변수를 쓴다. 메인 컬러 `--main`(#282828), 세컨더리 컬러 `--sub`(#800000)는 로고 'SAJA' 같은 주요 포인트에만 가끔 쓴다.

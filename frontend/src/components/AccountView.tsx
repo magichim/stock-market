@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchAccount, fetchTrades, type Account, type Trade } from '../api'
 import { money, pct, trendClass, won } from '../format'
+import { StockLogo } from './StockLogo'
 
 // 내 계좌 — 평가액·수익률, 보유 종목, 최근 체결
 export function AccountView({ event }: { event?: string }) {
@@ -56,7 +57,12 @@ export function AccountView({ event }: { event?: string }) {
             <tbody>
               {account.holdings.map((h) => (
                 <tr key={h.symbol}>
-                  <td>{h.name}</td>
+                  <td>
+                    <span className="holding-name">
+                      <StockLogo symbol={h.symbol} name={h.name} size={28} />
+                      {h.name}
+                    </span>
+                  </td>
                   <td className="num">{h.quantity.toLocaleString('ko-KR')}</td>
                   <td className="num">{money(h.avg_price, h.currency)}</td>
                   <td className={`num ${trendClass(h.pnl)}`}>{money(h.pnl, h.currency)}</td>
