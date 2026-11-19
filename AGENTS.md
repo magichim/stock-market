@@ -9,8 +9,9 @@
 
 ## Project
 
-- stock.agisaja.com 서비스. `backend/` FastAPI(uv), `frontend/` Vite + React + TS.
-- 기본 포트: 프론트 `5273`, 백엔드 `8100` — predict-market(5173·8000)과 겹치지 않게 유지한다.
+- stock.agisaja.com 서비스. `backend/` FastAPI(uv), `frontend/` Vite + React + TS, `kis/` KIS 게이트웨이(FastAPI, uv — 별도 프로세스).
+- 기본 포트: 프론트 `5273`, 백엔드 `8100`, KIS 게이트웨이 `8200` — predict-market(5173·8000·1455)과 겹치지 않게 유지한다.
+- `kis/`는 KIS 호출만 한다. DB 적재는 backend 수집기(`backend/app/prices.py`의 `KisProvider`)가 한다. 구조와 실행은 `kis/README.md`.
 - 실행 방법은 `README.md`.
 
 ## Auth

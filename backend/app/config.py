@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,14 +28,25 @@ class Settings(BaseSettings):
     # predict-market과 같은 Redis를 써도 된다 — 키는 모두 stock: 접두어
     redis_url: str = "redis://localhost:6379/0"
 
-    # 가격 공급자. mock은 랜덤 워크 (실 거래소 API 연동 전 개발용)
-    price_provider: Literal["mock"] = "mock"
+    # 가격 공급자. mock은 랜덤 워크(개발용), kis는 KIS 게이트웨이(kis/)에서 받는다
+    price_provider: Literal["mock", "kis"] = "mock"
+    kis_api_url: str = "http://localhost:8200"
+    # 시세를 수집할 국가 — KR(KOSPI·KOSDAQ), US(NASDAQ·NYSE)를 쉼표로. 빠진 국가의 종목·환율은 갱신하지 않는다
+    price_countries: str = "KR,US"
     # 가격 수집 주기(초)
     price_interval_seconds: int = 3600  # 수집 주기 (1시간)
     # 장 운영 시간 검사를 끈다 — 로컬 개발에서 밤·주말에도 수집·거래하려면 true
     ignore_market_hours: bool = False
     # 기본 계좌 시작 자금 (원)
     initial_cash: int = 10_000_000
+
+    @field_validator("price_countries")
+    @classmethod
+    def _countries(cls, v: str) -> str:
+        codes = {c.strip().upper() for c in v.split(",") if c.strip()}
+        if not codes or codes - {"KR", "US"}:
+            raise ValueError("PRICE_COUNTRIES는 KR, US 중 하나 이상을 쉼표로 적는다")
+        return ",".join(sorted(codes))
 
 
 settings = Settings()

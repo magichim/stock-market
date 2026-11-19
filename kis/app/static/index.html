@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KIS 게이트웨이 · 모니터링</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>KIS <span>게이트웨이</span></h1>
+  <nav><a class="on" href="/">모니터링</a><a href="/apis">API 목록</a><a href="/docs">OpenAPI</a></nav>
+</header>
+<main id="root"></main>
+<script>
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const tile = (label, value, cls = '') => `<div class="tile"><div class="label">${label}</div><div class="value ${cls}">${esc(value)}</div></div>`;
+const uptime = (s) => (s >= 86400 ? `${Math.floor(s / 86400)}일 ` : '') + `${Math.floor((s % 86400) / 3600)}시간 ${Math.floor((s % 3600) / 60)}분`;
+
+function render(s, down) {
+  const root = document.getElementById('root');
+  if (down) {
+    root.innerHTML = `<div class="tiles">${tile('프로세스', '응답 없음', 'bad')}</div>`;
+    return;
+  }
+  const avg = s.recent.length ? Math.round(s.recent.reduce((a, r) => a + r.ms, 0) / s.recent.length) : null;
+  root.innerHTML = `
+    <div class="tiles">
+      ${tile('프로세스', `실행 중 · pid ${s.pid}`, 'small')}
+      ${tile('가동 시간', uptime(s.uptime_seconds), 'small')}
+      ${tile('투자 환경', s.env === 'real' ? '실전' : '모의', s.env === 'real' ? 'bad' : '')}
+      ${tile('주문 API', s.allow_order ? '허용' : '차단', s.allow_order ? 'bad' : '')}
+      ${tile('앱키', s.configured ? '설정됨' : '미설정', s.configured ? '' : 'bad')}
+      ${tile('토큰 만료', s.token_expires_at ? s.token_expires_at.replace('T', ' ').slice(5, 16) : '없음', 'small')}
+      ${tile('KIS 샘플 버전', s.vendor_version ?? 'vendor 없음', s.vendor_version ? 'small' : 'small bad')}
+    </div>
+    <div class="tiles">
+      ${tile('조회 API', s.apis.rest)}
+      ${tile('주문 API', s.apis.order)}
+      ${tile('웹소켓 API', s.apis.websocket)}
+      ${tile('호출', s.calls.calls)}
+      ${tile('호출 오류', s.calls.errors, s.calls.errors ? 'bad' : '')}
+      ${tile('KIS 요청', s.upstream.calls)}
+      ${tile('KIS 요청 오류', s.upstream.errors, s.upstream.errors ? 'bad' : '')}
+      ${tile('평균 응답', avg === null ? '—' : `${avg} ms`)}
+    </div>
+    <div class="panel">
+      <h2>최근 호출 (최대 100건 · 재시작하면 비워진다)</h2>
+      ${s.recent.length ? `<table>
+        <tr><th>시각</th><th>API</th><th>응답</th><th>결과</th></tr>
+        ${s.recent.map((r) => `<tr>
+          <td class="mono">${esc(new Date(r.at).toLocaleString('ko-KR'))}</td>
+          <td class="mono">${esc(r.api)}</td>
+          <td class="num">${r.ms} ms</td>
+          <td class="${r.error ? 'bad' : 'dim'}">${esc(r.error ?? '정상')}</td>
+        </tr>`).join('')}
+      </table>` : '<div class="dim">아직 호출이 없다</div>'}
+    </div>`;
+}
+
+async function refresh() {
+  try {
+    render(await (await fetch('/meta/status')).json());
+  } catch {
+    render(null, true);
+  }
+}
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

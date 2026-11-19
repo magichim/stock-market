@@ -1,0 +1,59 @@
+/* 모니터링·API 목록 페이지 공통 — 색은 frontend/src/styles/base.css와 같은 값 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --main: #282828; --sub: #800000; --red: #e5484d; --blue: #3182f6;
+  --text: #282828; --text-dim: #6b7684; --border: #e5e8eb; --bg: #f2f4f7; --panel: #fff;
+}
+body {
+  word-break: keep-all;
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif;
+  font-size: 14px; background: var(--bg); color: var(--text);
+}
+code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+header { display: flex; align-items: center; gap: 24px; padding: 14px 24px; background: var(--panel); border-bottom: 1px solid var(--border); }
+header h1 { font-size: 16px; }
+header h1 span { color: var(--sub); }
+header nav { display: flex; gap: 16px; }
+header a { color: var(--text-dim); text-decoration: none; }
+header a.on { color: var(--text); font-weight: 600; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px; display: grid; gap: 16px; }
+.panel { background: var(--panel); border-radius: 12px; padding: 16px; overflow-x: auto; }
+.panel h2 { font-size: 13px; color: var(--text-dim); font-weight: 500; margin-bottom: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.tile { background: var(--panel); border-radius: 12px; padding: 14px 16px; }
+.tile .label { font-size: 12px; color: var(--text-dim); }
+.tile .value { margin-top: 6px; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tile .value.small { font-size: 14px; }
+.bad { color: var(--red); }
+.dim { color: var(--text-dim); }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 12px; color: var(--text-dim); font-weight: 500; white-space: nowrap; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; background: var(--bg); color: var(--text-dim); white-space: nowrap; }
+.badge.order { background: #fdecec; color: var(--red); }
+.badge.websocket { background: #eaf2fe; color: var(--blue); }
+input, select, button { font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
+button { background: var(--main); color: #fff; border-color: var(--main); cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: default; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.filters input { flex: 1; min-width: 200px; }
+#list { display: grid; gap: 12px; }
+.group > summary { display: flex; gap: 10px; align-items: center; cursor: pointer; list-style: none; font-weight: 600; }
+.group > summary::-webkit-details-marker { display: none; }
+.group > summary .title { flex: 1; }
+.group[open] > summary { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.api { border-bottom: 1px solid var(--border); }
+.api:last-child { border-bottom: 0; }
+.api summary { display: flex; gap: 10px; align-items: center; padding: 10px 4px; cursor: pointer; list-style: none; }
+.api summary::-webkit-details-marker { display: none; }
+.api summary .title { flex: 1; min-width: 0; }
+.api .body { padding: 4px 4px 16px; display: grid; gap: 12px; }
+.api pre { background: var(--bg); border-radius: 8px; padding: 12px; white-space: pre-wrap; word-break: break-all; max-height: 360px; overflow: auto; }
+.api td input { width: 100%; min-width: 120px; }
+@media (max-width: 640px) {
+  header { padding: 12px 16px; gap: 16px; }
+  .api summary { flex-wrap: wrap; }
+  .api summary .title { flex-basis: 100%; }
+}

@@ -11,9 +11,11 @@ dist/
 .vite/
 npm-debug.log*
 
-# backend (Python / uv)
+# backend · kis (Python / uv)
 .venv/
 .run/
+# KIS 샘플 저장소 — kis/server.sh vendor 로 받는다
+kis/vendor/
 __pycache__/
 *.py[cod]
 .pytest_cache/

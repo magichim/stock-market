@@ -11,6 +11,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Protocol
 
+import httpx
 from redis.asyncio import Redis
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,8 +19,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
 from .db import SessionLocal
 from .leaderboard import ACCOUNT_VALUES, refresh_realtime
-from .market import is_after_close, is_market_open, now_kst
+from .market import is_after_close, is_kr_quote_time, is_market_open, now_kst
 from .models import FxRate, PriceTick, Stock
+from .seed import MARKET_COUNTRY, MARKET_CURRENCY
 from .users import purge_deleted_users
 
 log = logging.getLogger(__name__)
@@ -51,12 +53,39 @@ class MockProvider:
         }
 
 
-PROVIDERS: dict[str, type[PriceProvider]] = {"mock": MockProvider}
+class KisProvider:
+    """KIS 게이트웨이(kis/)의 묶음 조회 — 받지 못한 종목·통화는 응답에서 빠져 있다."""
+
+    async def _prices(self, path: str, **params: str) -> dict[str, Decimal]:
+        async with httpx.AsyncClient(base_url=settings.kis_api_url, timeout=120) as client:
+            res = await client.get(path, params=params)
+        res.raise_for_status()
+        body = res.json()
+        if body["errors"]:
+            log.warning("kis %s: %s", path, body["errors"])
+        return {code: Decimal(value) for code, value in body["prices"].items()}
+
+    async def fetch(self, stocks: list[Stock]) -> dict[str, Decimal]:
+        return await self._prices("/quotes/stocks", items=",".join(f"{s.symbol}:{s.market}" for s in stocks))
+
+    async def fetch_fx(self, rates: list[FxRate]) -> dict[str, Decimal]:
+        return await self._prices("/quotes/fx", currencies=",".join(r.currency for r in rates))
+
+
+# 수집 대상 — PRICE_COUNTRIES에 적힌 국가의 시장과 그 통화만
+MARKETS = [m for m, c in MARKET_COUNTRY.items() if c in settings.price_countries.split(",")]
+CURRENCIES = {MARKET_CURRENCY[m] for m in MARKETS}
+
+PROVIDERS: dict[str, type[PriceProvider]] = {"mock": MockProvider, "kis": KisProvider}
 provider: PriceProvider = PROVIDERS[settings.price_provider]()
 
 
 async def collect_prices(session: AsyncSession) -> None:
-    stocks = list(await session.scalars(select(Stock).where(Stock.is_active)))
+    # 국내 종목은 NXT 포함 08:00–20:00, 그 밖(미국)은 기존 장 시간에만 수집한다
+    kst = now_kst()
+    is_open = {"KR": is_kr_quote_time(kst), "US": is_market_open(kst)}
+    markets = [m for m in MARKETS if is_open[MARKET_COUNTRY[m]]]
+    stocks = list(await session.scalars(select(Stock).where(Stock.is_active, Stock.market.in_(markets))))
     if not stocks:
         return
     prices = await provider.fetch(stocks)
@@ -75,7 +104,7 @@ async def collect_prices(session: AsyncSession) -> None:
 
 async def collect_fx(session: AsyncSession) -> None:
     """KRW(기준, 1 고정)를 뺀 통화의 최신 환율을 갱신한다."""
-    rates = list(await session.scalars(select(FxRate).where(FxRate.currency != "KRW")))
+    rates = list(await session.scalars(select(FxRate).where(FxRate.currency != "KRW", FxRate.currency.in_(CURRENCIES))))
     if not rates:
         return
     fetched = await provider.fetch_fx(rates)
@@ -117,7 +146,7 @@ async def run_collector(redis: Redis) -> None:
     while True:
         now = now_kst()
         try:
-            if is_market_open(now) and await redis.set("stock:lock:collect", "1", nx=True, ex=max(interval - 1, 1)):
+            if is_kr_quote_time(now) and await redis.set("stock:lock:collect", "1", nx=True, ex=max(interval - 1, 1)):
                 async with SessionLocal() as session:
                     await collect_fx(session)
                     await collect_prices(session)

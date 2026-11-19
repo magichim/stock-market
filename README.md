@@ -13,6 +13,7 @@ backend/app/
   users.py        predict-market 프로필 조회(내부 API)·탈퇴 사용자 계좌 정리
   routers/        /api/stocks, /api/account, /api/trades, /api/events, /api/leaderboard
 frontend/src/     종목(주문) · 내 계좌 · 리더보드 탭
+kis/              KIS 게이트웨이 — 한국투자증권 Open API 샘플을 HTTP로 구동 (포트 8200, kis/README.md)
 ```
 
 데이터는 전용 DB(`stock_market`)에 두고, 다른 사용자의 프로필은 predict-market 내부 API로 조회한다 (AUTH.md "서버 간 내부 API"). Redis는 predict-market과 같이 써도 된다 (키 접두어 `stock:`).
@@ -33,6 +34,13 @@ uv run uvicorn app.main:app --port 8100 --reload
 cd frontend
 npm install
 npm run dev
+```
+
+```bash
+# KIS 게이트웨이 — localhost:8200 (실 시세를 쓸 때만. backend/.env에 PRICE_PROVIDER=kis, 수집 국가는 PRICE_COUNTRIES=KR,US)
+cd kis
+cp .env.example .env   # KIS 앱키·시크릿
+./server.sh vendor && ./server.sh dev
 ```
 
 predict-market `backend/.env`에 `TRUSTED_ORIGINS=http://localhost:5273`을 추가한다. 소셜 로그인 후 이 앱으로 돌아오는 데 필요하고, CORS를 운영과 같은 조건으로 맞춘다 (로컬 refresh·로그아웃은 vite dev 서버가 CORS 헤더를 채워 이 값 없이도 동작한다).

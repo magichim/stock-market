@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KIS 게이트웨이 · API 목록</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>KIS <span>게이트웨이</span></h1>
+  <nav><a href="/">모니터링</a><a class="on" href="/apis">API 목록</a><a href="/docs">OpenAPI</a></nav>
+</header>
+<main>
+  <div class="panel filters">
+    <input id="q" type="search" placeholder="이름·제목·경로 검색">
+    <select id="kind">
+      <option value="">전체 종류</option><option value="rest">조회</option><option value="order">주문</option><option value="websocket">웹소켓</option>
+    </select>
+    <span id="count" class="dim"></span>
+  </div>
+  <div id="list"></div>
+</main>
+<script>
+// 표시 순서대로 — 여기에 없는 카테고리는 뒤에 붙는다
+const CATEGORY = {
+  domestic_stock: '국내주식', overseas_stock: '해외주식', etfetn: 'ETF/ETN', elw: 'ELW',
+  domestic_futureoption: '국내선물옵션', overseas_futureoption: '해외선물옵션', domestic_bond: '국내채권', auth: '인증',
+};
+const KIND = { rest: '조회', order: '주문', websocket: '웹소켓' };
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const $ = (id) => document.getElementById(id);
+let apis = [];
+let allowOrder = false;
+const opened = new Set(); // 펼쳐 둔 카테고리 — 다시 그려도 유지한다
+
+function body(a) {
+  const path = `/api/${a.category}/${a.name}`;
+  // env_dv(실전/모의)는 서버 설정을 따르므로 입력받지 않는다
+  const params = a.params.filter((p) => p.name !== 'env_dv');
+  const callable = a.kind === 'rest' || (a.kind === 'order' && allowOrder);
+  return `<div class="body">
+    <div class="mono">${a.kind === 'order' ? 'POST' : 'GET'} ${esc(path)}<span class="dim"> → KIS ${esc(a.url)}</span></div>
+    ${params.length ? `<table>
+      <tr><th>파라미터</th><th>타입</th><th>설명</th>${callable ? '<th>값</th>' : ''}</tr>
+      ${params.map((p) => `<tr>
+        <td class="mono">${esc(p.name)}${p.required ? ' <span class="bad">*</span>' : ''}</td>
+        <td class="mono dim">${esc(p.type)}</td>
+        <td>${esc(p.desc)}</td>
+        ${callable ? `<td><input name="${esc(p.name)}" value="${esc(p.default ?? '')}"></td>` : ''}
+      </tr>`).join('')}
+    </table>` : ''}
+    ${callable ? '<div><button type="button">호출</button></div><pre hidden></pre>' : `<div class="dim">${a.kind === 'order' ? '주문 API는 차단되어 있다 (KIS_ALLOW_ORDER)' : '웹소켓 API는 아직 호출을 지원하지 않는다'}</div>`}
+    <pre>${esc(a.doc)}</pre>
+  </div>`;
+}
+
+function render() {
+  const q = $('q').value.trim().toLowerCase();
+  const shown = apis.filter((a) =>
+    (!$('kind').value || a.kind === $('kind').value) &&
+    (!q || `${a.name} ${a.title} ${a.url}`.toLowerCase().includes(q)));
+  $('count').textContent = `${shown.length} / ${apis.length}`;
+  const categories = [...new Set([...Object.keys(CATEGORY), ...apis.map((a) => a.category)])];
+  // 검색 중에는 결과가 바로 보이게 모두 펼친다
+  $('list').innerHTML = categories.map((c) => {
+    const items = shown.filter((a) => a.category === c);
+    if (!items.length) return '';
+    return `<details class="panel group" data-category="${esc(c)}" ${q || opened.has(c) ? 'open' : ''}>
+      <summary><span class="title">${esc(CATEGORY[c] ?? c)}</span><span class="dim">${items.length}</span></summary>
+      ${items.map((a) => `<details class="api" data-key="${a.category}/${a.name}">
+        <summary>
+          <span class="title">${esc(a.title.replace(/^\[[^\]]*\]\s*/, ''))}</span>
+          <span class="mono dim">${esc(a.name)}</span>
+          <span class="badge ${a.kind}">${KIND[a.kind]}</span>
+        </summary>
+      </details>`).join('')}
+    </details>`;
+  }).join('') || '<div class="panel dim">조건에 맞는 API가 없다</div>';
+}
+
+// 본문은 펼칠 때 만든다 (330여 개를 한 번에 그리지 않는다)
+$('list').addEventListener('toggle', (e) => {
+  const el = e.target;
+  if (el.classList.contains('group')) {
+    if (!$('q').value.trim()) opened[el.open ? 'add' : 'delete'](el.dataset.category);
+    return;
+  }
+  if (!el.open || el.querySelector('.body')) return;
+  const a = apis.find((x) => `${x.category}/${x.name}` === el.dataset.key);
+  el.insertAdjacentHTML('beforeend', body(a));
+}, true);
+
+$('list').addEventListener('click', async (e) => {
+  if (e.target.tagName !== 'BUTTON') return;
+  const button = e.target;
+  const el = button.closest('.api');
+  const a = apis.find((x) => `${x.category}/${x.name}` === el.dataset.key);
+  const args = {};
+  el.querySelectorAll('input').forEach((i) => {
+    const required = a.params.find((p) => p.name === i.name).required;
+    if (i.value !== '' || required) args[i.name] = i.value;
+  });
+  const out = el.querySelector('pre');
+  button.disabled = true;
+  button.textContent = '호출 중';
+  try {
+    const path = `/api/${a.category}/${a.name}`;
+    const res = a.kind === 'order'
+      ? await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(args) })
+      : await fetch(`${path}?${new URLSearchParams(args)}`);
+    out.textContent = `${res.status}\n${JSON.stringify(await res.json(), null, 2)}`;
+  } catch (err) {
+    out.textContent = String(err);
+  }
+  out.hidden = false;
+  button.disabled = false;
+  button.textContent = '호출';
+});
+
+for (const id of ['q', 'kind']) $(id).addEventListener('input', render);
+
+(async () => {
+  const [list, status] = await Promise.all([fetch('/meta/apis'), fetch('/meta/status')].map((p) => p.then((r) => r.json())));
+  apis = list;
+  allowOrder = status.allow_order;
+  render();
+})();
+</script>
+</body>
+</html>
