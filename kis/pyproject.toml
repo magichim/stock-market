@@ -15,6 +15,10 @@ dependencies = [
     "websockets>=15.0.1",
 ]
 
+[project.scripts]
+# uv run kis-gateway [--reload] — PORT 기본 8200
+kis-gateway = "app.main:run"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

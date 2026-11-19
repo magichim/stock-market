@@ -6,10 +6,12 @@
 """
 
 import os
+import sys
 import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -79,3 +81,8 @@ def monitor_page() -> FileResponse:
 @app.get("/apis", include_in_schema=False)
 def apis_page() -> FileResponse:
     return FileResponse(STATIC / "apis.html")
+
+
+def run() -> None:
+    """`uv run kis-gateway [--reload]` — 로그인이 없으므로 127.0.0.1에만 바인딩한다."""
+    uvicorn.run("app.main:app", host="127.0.0.1", port=int(os.environ.get("PORT", 8200)), reload="--reload" in sys.argv)
