@@ -40,7 +40,7 @@ kis/
       index.html     모니터링 페이지 (/)
       apis.html      API 목록 페이지 (/apis)
       style.css      두 페이지 공통 스타일
-  vendor/            koreainvestment/open-trading-api clone (git 제외)
+  vendor/            koreainvestment/open-trading-api — server.sh의 VENDOR_COMMIT 커밋 (git 제외)
   .run/              실행 중 생기는 파일 (git 제외)
     uvicorn.pid, uvicorn.log        server.sh가 쓴다
     home/KIS/config/kis_devlp.yaml  .env로 만든 KIS 설정 (권한 600)

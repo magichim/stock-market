@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # KIS 게이트웨이 백그라운드 관리: ./server.sh {start|dev|stop|restart|status|log|vendor}
-# 호출 통계·KIS 토큰 상태를 프로세스 메모리에 두므로 worker는 하나만 띄운다. vendor: KIS 샘플 저장소 clone/갱신
+# 호출 통계·KIS 토큰 상태를 프로세스 메모리에 두므로 worker는 하나만 띄운다. vendor: KIS 샘플 저장소를 VENDOR_COMMIT으로 받는다
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -9,6 +9,8 @@ cd "$(dirname "$0")"
 export TZ=KST-9
 PORT="${PORT:-8200}"
 RUN_DIR=.run
+# KIS 샘플 저장소(koreainvestment/open-trading-api) 고정 커밋 — 올릴 때는 로컬에서 조회를 확인한 뒤 이 값을 바꾼다
+VENDOR_COMMIT="${VENDOR_COMMIT:-74b0a082fa67a0be5bf53f561719c853890ed2df}"
 PID_FILE="$RUN_DIR/uvicorn.pid"
 LOG_FILE="$RUN_DIR/uvicorn.log"
 
@@ -83,8 +85,14 @@ case "${1:-}" in
   restart) stop; start --workers 1 ;;
   status) status ;;
   vendor)
-    if [[ -d vendor/.git ]]; then git -C vendor pull --ff-only
-    else git clone --depth 1 https://github.com/koreainvestment/open-trading-api vendor; fi ;;
+    # VENDOR_COMMIT 하나만 받아 그 커밋으로 맞춘다 — 서버마다 같은 샘플 코드를 쓰게 한다
+    if [[ ! -d vendor/.git ]]; then
+      git init -q vendor
+      git -C vendor remote add origin https://github.com/koreainvestment/open-trading-api
+    fi
+    git -C vendor fetch -q --depth 1 origin "$VENDOR_COMMIT"
+    git -C vendor checkout -q --detach FETCH_HEAD
+    echo "vendor: $(git -C vendor log -1 --format='%h %cs')" ;;
   log) tail -n 50 -f "$LOG_FILE" ;;
   *) echo "사용법: $0 {start|dev|stop|restart|status|log|vendor}"; exit 1 ;;
 esac

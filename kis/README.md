@@ -21,7 +21,7 @@ vendor/       KIS 샘플 저장소 (git 제외 — ./server.sh vendor)
 
 ```bash
 cp .env.example .env   # KIS Developers에서 받은 앱키·시크릿·계좌
-./server.sh vendor     # KIS 샘플 저장소 clone (다시 실행하면 갱신)
+./server.sh vendor     # KIS 샘플 저장소를 고정 커밋(server.sh의 VENDOR_COMMIT)으로 받는다
 ./server.sh dev        # start|dev|stop|restart|status|log, PORT 기본 8200
 ```
 
