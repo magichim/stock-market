@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func, or_, select
 
 from ..db import SessionLocal
-from ..market import is_market_open, now_kst
+from ..market import is_tradable, kr_session, now_kst
 from ..models import PriceTick, Stock
 
 router = APIRouter(prefix="/api/stocks")
@@ -14,8 +14,10 @@ router = APIRouter(prefix="/api/stocks")
 async def list_stocks() -> dict:
     async with SessionLocal() as session:
         stocks = await session.scalars(select(Stock).where(Stock.is_active).order_by(Stock.display_order, Stock.symbol))
+        now = now_kst()
+        kr = await kr_session(now)
         return {
-            "market_open": is_market_open(now_kst()),
+            "session": kr,  # 국내 장 구간 — regular | nxt | null(닫힘)
             "stocks": [
                 {
                     "symbol": s.symbol,
@@ -26,6 +28,7 @@ async def list_stocks() -> dict:
                     "price": float(s.last_price) if s.last_price is not None else None,
                     "prev_close": float(s.prev_close) if s.prev_close is not None else None,
                     "price_at": s.last_price_at,
+                    "tradable": is_tradable(s, now, kr),  # 지금 주문할 수 있는지
                 }
                 for s in stocks
             ],

@@ -13,7 +13,7 @@ stock-market/
 
 ```
 backend 수집기 (prices.py · KisProvider)
-      │  GET /quotes/stocks, /quotes/fx
+      │  GET /quotes/stocks, /quotes/fx, /quotes/trading-day, /quotes/nxt
       ▼
 kis 게이트웨이 ──▶ vendor/examples_llm 샘플 함수 ──▶ KIS Open API
       ▲
@@ -84,12 +84,16 @@ backend 수집기가 쓰는 묶음 조회. 종목 하나가 실패해도 나머�
 | 경로 | 쓰는 샘플 API | 값 컬럼 |
 | --- | --- | --- |
 | `/quotes/stocks` | 국내 `domestic_stock/inquire_price`, 해외 `overseas_stock/price` | `stck_prpr`, `last` |
+| `/quotes/trading-day` | `domestic_stock/chk_holiday` | `opnd_yn` → `{day, trading}` |
+| `/quotes/nxt` | `domestic_stock/search_stock_info` (상품유형 `300`) | `cptt_trad_tr_psbl_yn`, `nxt_tr_stop_yn` → `{tradable, errors}` |
 | `/quotes/fx` | `overseas_stock/inquire_daily_chartprice` (시장 `X`) | `ovrs_nmix_prpr` |
 | `/quotes/indices` | `domestic_stock/inquire_index_price` | `bstp_nmix_prpr` |
 
 `/quotes/stocks`는 국내 종목이 있으면 `domestic_stock/chk_holiday`(국내휴장일조회)를 먼저 호출해 오늘(KST)이 개장일(`opnd_yn=Y`)일 때만 국내 시세를 받는다. 휴장일이거나 조회에 실패하면 국내 종목은 `errors`(`휴장일` / `휴장일 조회 실패 — …`)로 돌려주고, 해외 종목은 그대로 조회한다. KIS가 이 API는 1일 1회 호출을 권하므로 응답에 담긴 날짜별 개장 여부를 프로세스 메모리에 캐시한다 (실패는 캐시하지 않는다).
 
 국내 시세는 KRX+NXT 통합(`fid_cond_mrkt_div_code=UN`)으로 받는다 — backend가 NXT 시간을 포함한 평일 08:00–20:00에 수집한다(`backend/app/market.py`). 국내 종목 시세는 순서대로 하나씩, 초당 최대 10건(`DOMESTIC_INTERVAL` 0.1초 간격)으로 조회한다 — KIS 한도(초당 20건)의 절반. 해외 종목은 국내 조회가 끝난 뒤 `vendor.MIN_INTERVAL` 간격으로 이어서 조회한다.
+
+`/quotes/trading-day`는 backend가 주문을 받을지 정할 때 쓴다(`day` 생략 시 오늘 KST). `/quotes/nxt`는 국내 종목이 지금 NXT에서 거래되는지 돌려준다 — 주식기본조회의 NXT 거래종목여부가 `Y`이고 NXT 거래정지가 아닐 때 `true`. KIS 오류·빈 응답은 판단하지 않고 `errors`에 담는다. 전체 흐름은 루트의 `KR_MARKET.md`.
 
 ### `app/main.py`
 

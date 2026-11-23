@@ -12,6 +12,7 @@
 - stock.agisaja.com 서비스. `backend/` FastAPI(uv), `frontend/` Vite + React + TS, `kis/` KIS 게이트웨이(FastAPI, uv — 별도 프로세스).
 - 기본 포트: 프론트 `5273`, 백엔드 `8100`, KIS 게이트웨이 `8200` — predict-market(5173·8000·1455)과 겹치지 않게 유지한다.
 - `kis/`는 KIS 호출만 한다. DB 적재는 backend 수집기(`backend/app/prices.py`의 `KisProvider`)가 한다. 구조와 실행은 `kis/README.md`.
+- 국내 장의 가격 수집·거래 가능 판단(휴장일, 정규장·NXT 시간표, `stocks.nxt_tradable`)은 `KR_MARKET.md`. 이 동작을 바꾸면 함께 고친다.
 - 실행 방법은 `README.md`.
 
 ## Auth

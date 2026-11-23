@@ -13,7 +13,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
-from .market import is_market_open, now_kst
+from .market import is_market_open, is_tradable, kr_session, now_kst
 from .models import Account, AccountBalance, Event, Exchange, FxRate, Holding, PriceTick, Stock, Trade
 
 BASE_CURRENCY = "KRW"
@@ -77,10 +77,18 @@ async def account_summary(session: AsyncSession, user_id: int, event: Event | No
     }
 
 
-def _check_tradable(event: Event | None) -> None:
+async def _check_tradable(stock: Stock | None, event: Event | None) -> None:
+    """주문은 그 종목의 거래 가능 시간(market.is_tradable), 환전(stock 없음)은 정규장 시간표를 따른다."""
     now = now_kst()
-    if not is_market_open(now):
-        raise HTTPException(409, "장 운영 시간이 아닙니다.")
+    if stock is None:
+        if not is_market_open(now):
+            raise HTTPException(409, "장 운영 시간이 아닙니다.")
+    else:
+        session = await kr_session(now)
+        if not is_tradable(stock, now, session):
+            # NXT 구간에 막힌 국내 종목은 NXT에서 거래되지 않는 종목이다
+            nxt_only = session == "nxt" and stock.currency == BASE_CURRENCY
+            raise HTTPException(409, "정규장(09:00–15:30)에만 거래할 수 있는 종목입니다." if nxt_only else "장 운영 시간이 아닙니다.")
     if event and not (event.start_date <= now.date() <= event.end_date):
         raise HTTPException(409, "이벤트 기간이 아닙니다.")
 
@@ -120,10 +128,10 @@ async def _balance(session: AsyncSession, account_id: int, currency: str) -> Acc
 async def execute_trade(
     session: AsyncSession, user_id: int, event: Event | None, symbol: str, side: Literal["buy", "sell"], quantity: int
 ) -> Trade:
-    _check_tradable(event)
     stock = await session.scalar(select(Stock).where(Stock.symbol == symbol, Stock.is_active))
     if stock is None:
         raise HTTPException(404, "종목을 찾을 수 없습니다.")
+    await _check_tradable(stock, event)
     if stock.last_price is None or _is_stale(stock.last_price_at):
         raise HTTPException(409, "최신 가격이 없어 체결할 수 없습니다.")
 
@@ -169,7 +177,7 @@ async def execute_exchange(
     session: AsyncSession, user_id: int, event: Event | None, from_currency: str, to_currency: str, amount: Decimal
 ) -> Exchange:
     """from 통화 amount를 최신 환율로 to 통화로 바꾼다. 받는 금액은 0.01 단위 내림."""
-    _check_tradable(event)
+    await _check_tradable(None, event)
     if from_currency == to_currency:
         raise HTTPException(422, "같은 통화로는 환전할 수 없습니다.")
     rates = {r.currency: r for r in await session.scalars(select(FxRate).where(FxRate.currency.in_([from_currency, to_currency])))}

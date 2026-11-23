@@ -43,6 +43,8 @@ SCHEMA_PATCHES: list[str] = [
     END $$""",
     # 종목 종류 — 개별 종목(stock) | ETF. 컬럼이 생기기 전에 시드로 들어간 ETF 행을 맞춘다
     "ALTER TABLE stocks ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'stock' CHECK (kind IN ('stock', 'etf'))",
+    # NXT(넥스트레이드) 거래 종목 여부 — 수집기가 하루 한 번 KIS로 확인해 채운다
+    "ALTER TABLE stocks ADD COLUMN IF NOT EXISTS nxt_tradable BOOLEAN NOT NULL DEFAULT false",
     "UPDATE stocks SET kind = 'etf' WHERE kind = 'stock' AND symbol IN ('069500', '229200', '379800', '379810', '091160', '305720')",
 ]
 

@@ -28,25 +28,36 @@ _trading_days: dict[str, bool] = {}
 OVERSEAS = {"NASDAQ": "NAS", "NYSE": "NYS", "AMEX": "AMS"}
 
 
-def _collect(codes: list[str], fetch, interval: float = 0) -> dict:
-    """fetch(code) → (API 키, 인자, 값이 든 컬럼). 응답 첫 행의 그 컬럼을 값으로 쓴다.
+def _rows(codes: list[str], fetch, interval: float = 0) -> tuple[dict, dict]:
+    """fetch(code) → (API 키, 인자). ({code: 응답 첫 행 | None}, {code: KIS 오류})를 돌려준다.
 
     순서대로 하나씩 호출하고, interval이 있으면 호출 시작 간격을 그 이상으로 벌린다.
     """
-    prices, errors = {}, {}
+    rows, errors = {}, {}
     last = 0.0
     for code in codes:
         time.sleep(max(0.0, last + interval - time.monotonic()))
         last = time.monotonic()
-        key, args, column = fetch(code)
+        key, args = fetch(code)
         res = vendor.call(key, args)
-        rows = res["data"][0] if key.endswith("chartprice") else res["data"]  # chartprice는 (현재, 일별) 튜플
-        value = rows[0].get(column) if rows else None
-        if value in (None, "", "0"):
-            errors[code] = (res["error"] or {}).get("message") or "값 없음"
-        else:
-            prices[code] = value
-    return {"prices": prices, "errors": errors}
+        data = res["data"][0] if key.endswith("chartprice") else res["data"]  # chartprice는 (현재, 일별) 튜플
+        rows[code] = data[0] if data else None
+        if res["error"]:
+            errors[code] = res["error"].get("message") or "KIS 오류"
+    return rows, errors
+
+
+def _collect(codes: list[str], fetch, interval: float = 0) -> dict:
+    """fetch(code) → (API 키, 인자, 값이 든 컬럼). 값이 비었거나 0인 코드는 errors로 돌린다."""
+    columns = {}
+
+    def request(code):
+        key, args, columns[code] = fetch(code)
+        return key, args
+
+    rows, kis_errors = _rows(codes, request, interval)
+    prices = {c: v for c, row in rows.items() if (v := (row or {}).get(columns[c])) not in (None, "", "0")}
+    return {"prices": prices, "errors": {c: kis_errors.get(c, "값 없음") for c in rows if c not in prices}}
 
 
 def is_trading_day(day: str) -> bool:
@@ -88,6 +99,34 @@ def stocks(items: str) -> dict:
     result["prices"].update(overseas["prices"])
     result["errors"].update(overseas["errors"] | skipped)
     return result
+
+
+@router.get("/trading-day")
+def trading_day(day: str | None = None) -> dict:
+    """day(YYYYMMDD, 생략하면 오늘 KST)가 국내 주식시장 개장일인지."""
+    day = day or today_kst()
+    return {"day": day, "trading": is_trading_day(day)}
+
+
+@router.get("/nxt")
+def nxt(symbols: str) -> dict:
+    """symbols: '005930,069500' — 국내 종목이 지금 NXT(넥스트레이드)에서 거래되는 종목인지.
+
+    주식기본조회의 NXT 거래종목여부(cptt_trad_tr_psbl_yn)가 Y이고 NXT 거래정지(nxt_tr_stop_yn)가 아닐 때 true.
+    """
+    rows, errors = _rows(
+        [s for s in symbols.split(",") if s],
+        lambda symbol: ("domestic_stock/search_stock_info", {"prdt_type_cd": "300", "pdno": symbol}),  # 300: 주식·ETF·ETN·ELW
+        DOMESTIC_INTERVAL,
+    )
+    tradable = {}
+    for code, row in rows.items():
+        listed = (row or {}).get("cptt_trad_tr_psbl_yn")
+        if listed in ("Y", "N"):
+            tradable[code] = listed == "Y" and row.get("nxt_tr_stop_yn") != "Y"
+        else:
+            errors.setdefault(code, "값 없음")
+    return {"tradable": tradable, "errors": {c: e for c, e in errors.items() if c not in tradable}}
 
 
 @router.get("/fx")

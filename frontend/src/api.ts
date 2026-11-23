@@ -38,6 +38,9 @@ export async function fetchMe(): Promise<User | null> {
   return (await res.json()).user
 }
 
+// 국내 장 구간 — 정규장 / NXT 프리·애프터마켓 / 닫힘
+export type MarketSession = 'regular' | 'nxt' | null
+
 export interface Stock {
   symbol: string
   name: string
@@ -47,6 +50,7 @@ export interface Stock {
   price: number | null
   prev_close: number | null
   price_at: string | null
+  tradable: boolean // 지금 주문할 수 있는지 (휴장일·장 구간·NXT 거래 여부 반영)
 }
 
 // 가격·평가액·손익은 종목 통화, value_krw만 KRW 환산
@@ -131,7 +135,7 @@ export interface StockHit {
 export const searchStocks = async (q: string, signal?: AbortSignal) =>
   json<StockHit[]>(await send(`/api/stocks/search?q=${encodeURIComponent(q)}`, { signal }))
 
-export const fetchStocks = async () => json<{ market_open: boolean; stocks: Stock[] }>(await send('/api/stocks'))
+export const fetchStocks = async () => json<{ session: MarketSession; stocks: Stock[] }>(await send('/api/stocks'))
 export const fetchEvents = async () => json<StockEvent[]>(await send('/api/events'))
 export const fetchAccount = async (event?: string) => json<Account>(await send(`/api/account${eventQuery(event)}`))
 export const fetchTrades = async (event?: string) => json<Trade[]>(await send(`/api/account/trades${eventQuery(event)}`))

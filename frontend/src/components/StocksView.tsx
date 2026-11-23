@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchStocks, placeTrade, type Stock } from '../api'
+import { fetchStocks, placeTrade, type MarketSession, type Stock } from '../api'
 import { money, pct, trendClass } from '../format'
 import { StockLogo } from './StockLogo'
 
 // 매수·매도 일시 중단 — true로 바꾸면 다시 주문할 수 있다 (화면만 막는다. API는 그대로)
 const TRADING_ENABLED = false
+
+const SESSION_TEXT = {
+  regular: '장 운영 중 · 주문은 최신가로 즉시 체결됩니다',
+  nxt: 'NXT 거래 시간 · NXT에서 거래되는 종목만 주문할 수 있습니다',
+  closed: '장 마감 · 평일 08:00–20:00에 거래할 수 있습니다 (NXT 미거래 종목은 09:00–15:30)',
+}
 
 // 종목 목록 + 시장가 매수·매도. 가격은 30초마다 다시 읽는다 (서버 수집 주기 기본 1시간)
 export function StocksView({
@@ -17,7 +23,7 @@ export function StocksView({
   focus?: { symbol: string } | null
 }) {
   const [stocks, setStocks] = useState<Stock[]>([])
-  const [marketOpen, setMarketOpen] = useState(false)
+  const [session, setSession] = useState<MarketSession>(null)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [message, setMessage] = useState('')
   // 진행 중인 주문 — 끝날 때까지 모든 주문 버튼을 막고, 누른 버튼은 '매수 중'처럼 표시한다
@@ -27,7 +33,7 @@ export function StocksView({
     try {
       const data = await fetchStocks()
       setStocks(data.stocks)
-      setMarketOpen(data.market_open)
+      setSession(data.session)
     } catch (err) {
       setMessage(err instanceof Error ? err.message : '종목을 불러오지 못했습니다.')
     }
@@ -67,7 +73,7 @@ export function StocksView({
 
   return (
     <section className="panel">
-      <p className="dim">{!TRADING_ENABLED ? '매수·매도는 잠시 중단되었습니다' : marketOpen ? '장 운영 중 · 주문은 최신가로 즉시 체결됩니다' : '장 마감 · 평일 09:00–15:30에 거래할 수 있습니다'}</p>
+      <p className="dim">{TRADING_ENABLED ? SESSION_TEXT[session ?? 'closed'] : '매수·매도는 잠시 중단되었습니다'}</p>
       {message && <p className="notice">{message}</p>}
       <ul className="stocks">
         {stocks.map((s) => {
@@ -94,10 +100,10 @@ export function StocksView({
                     value={quantities[s.symbol] ?? 1}
                     onChange={(e) => setQuantities({ ...quantities, [s.symbol]: Number(e.target.value) })}
                   />
-                  <button className="btn btn-primary" disabled={!TRADING_ENABLED || !marketOpen || !!pending} onClick={() => trade(s.symbol, 'buy')}>
+                  <button className="btn btn-primary" disabled={!TRADING_ENABLED || !s.tradable || !!pending} onClick={() => trade(s.symbol, 'buy')}>
                     {sideLabel(s.symbol, 'buy')}
                   </button>
-                  <button className="btn btn-outline" disabled={!TRADING_ENABLED || !marketOpen || !!pending} onClick={() => trade(s.symbol, 'sell')}>
+                  <button className="btn btn-outline" disabled={!TRADING_ENABLED || !s.tradable || !!pending} onClick={() => trade(s.symbol, 'sell')}>
                     {sideLabel(s.symbol, 'sell')}
                   </button>
                 </div>

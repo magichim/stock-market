@@ -49,6 +49,7 @@ CREATE TABLE stocks (
     name          VARCHAR(100) NOT NULL,          -- 삼성전자
     market        VARCHAR(10)  NOT NULL,          -- KOSPI | KOSDAQ | NASDAQ | NYSE
     kind          VARCHAR(10)  NOT NULL DEFAULT 'stock' CHECK (kind IN ('stock', 'etf')),  -- 개별 종목 | ETF (시드에서 지정)
+    nxt_tradable  BOOLEAN      NOT NULL DEFAULT FALSE,  -- NXT 거래 종목 — 수집기가 하루 한 번 갱신 (KR_MARKET.md)
     currency      VARCHAR(3)   NOT NULL DEFAULT 'KRW',  -- 거래 통화 (시드: 시장 → 통화)
     is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
     display_order SMALLINT     NOT NULL DEFAULT 0,
@@ -198,9 +199,9 @@ CREATE INDEX idx_trades_account_time ON trades (account_id, executed_at DESC);
 
 #### 체결 규칙
 
-1. 장 운영 시간(KST 평일 09:00–15:30)이고, 종목 최신가가 신선할 때(`last_price_at`이 수집 주기 × 3 이내)만 체결한다. 이벤트 계좌는 이벤트 기간 안에서만.
+1. 그 종목을 거래할 수 있는 시간이고(국내 종목은 개장일의 정규장 09:00–15:30, NXT 거래 종목은 NXT 프리·애프터마켓 포함 — `KR_MARKET.md`. 해외 종목은 KST 평일 09:00–15:30), 종목 최신가가 신선할 때(`last_price_at`이 수집 주기 × 3 이내)만 체결한다. 이벤트 계좌는 이벤트 기간 안에서만.
 2. 한 트랜잭션에서 계좌 행을 `SELECT ... FOR UPDATE`로 잠근 뒤 종목 통화 잔액·보유 수량을 확인하고 `account_balances`, `holdings`, `trades`를 함께 갱신한다 — 동시 주문·환전으로 잔액이 음수가 되거나 초과 매도되지 않는다 (`amount >= 0`, `quantity > 0` CHECK가 최종 방어선).
-3. 환전도 같은 계좌 잠금 아래에서 두 통화 잔액과 `exchanges`를 함께 갱신한다. 장 운영 시간·이벤트 기간 조건은 주문과 같고, KRW가 아닌 통화는 환율이 신선할 때(`rate_at`이 수집 주기 × 3 이내)만 체결한다.
+3. 환전도 같은 계좌 잠금 아래에서 두 통화 잔액과 `exchanges`를 함께 갱신한다. KST 평일 09:00–15:30(휴장일 미반영)과 이벤트 기간 안에서만 되고, KRW가 아닌 통화는 환율이 신선할 때(`rate_at`이 수집 주기 × 3 이내)만 체결한다.
 4. 수수료·세금은 아직 없다. 필요해지면 `trades.fee` 컬럼을 추가하고 현금 차감에 반영한다.
 
 ## 4. 평가액 스냅샷과 리더보드
@@ -240,6 +241,7 @@ predict-market과 같은 Redis를 쓰므로 키는 모두 `stock:` 접두어를 
 | `stock:lock:collect` | STRING (NX, EX 주기−1초) | 워커가 여러 개여도(uvicorn `--workers 2`) 한 주기에 한 워커만 가격을 수집 |
 | `stock:lock:purge:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 탈퇴 사용자 정리를 하루 한 번만 (실패 시 키 삭제 후 재시도) |
 | `stock:lock:snapshot:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 장 마감 스냅샷을 하루 한 번만 (실패 시 키 삭제 후 재시도) |
+| `stock:lock:nxt:{YYYY-MM-DD}` | STRING (NX, EX 2일) | NXT 거래 종목 여부(`stocks.nxt_tradable`) 갱신을 하루 한 번만 (실패 시 키 삭제 후 재시도) |
 
 ## 설계 결정 요약
 

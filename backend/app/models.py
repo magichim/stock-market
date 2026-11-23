@@ -40,6 +40,7 @@ class Stock(Base):
     name: Mapped[str] = mapped_column(String(100))
     market: Mapped[str] = mapped_column(String(10))
     kind: Mapped[str] = mapped_column(String(10), server_default="stock")  # stock(개별 종목) | etf
+    nxt_tradable: Mapped[bool] = mapped_column(Boolean, server_default="false")  # NXT 거래 종목 (수집기가 하루 한 번 갱신)
     currency: Mapped[str] = mapped_column(String(3), server_default="KRW")  # 거래 통화 — 가격·평단·체결 금액의 단위
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
     display_order: Mapped[int] = mapped_column(SmallInteger, server_default="0")
