@@ -21,6 +21,7 @@ async def list_stocks() -> dict:
                     "symbol": s.symbol,
                     "name": s.name,
                     "market": s.market,
+                    "kind": s.kind,
                     "currency": s.currency,
                     "price": float(s.last_price) if s.last_price is not None else None,
                     "prev_close": float(s.prev_close) if s.prev_close is not None else None,
@@ -58,6 +59,7 @@ async def search(q: str = Query(min_length=1, max_length=50), limit: int = Query
                 "symbol": s.symbol,
                 "name": s.name,
                 "market": s.market,
+                "kind": s.kind,
                 "currency": s.currency,
                 "price": float(s.last_price) if s.last_price is not None else None,
             }

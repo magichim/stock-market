@@ -33,11 +33,13 @@ def _now() -> Mapped[datetime]:
 
 class Stock(Base):
     __tablename__ = "stocks"
+    __table_args__ = (CheckConstraint("kind IN ('stock', 'etf')"),)
 
     id: Mapped[int] = _pk()
     symbol: Mapped[str] = mapped_column(String(12), unique=True)
     name: Mapped[str] = mapped_column(String(100))
     market: Mapped[str] = mapped_column(String(10))
+    kind: Mapped[str] = mapped_column(String(10), server_default="stock")  # stock(개별 종목) | etf
     currency: Mapped[str] = mapped_column(String(3), server_default="KRW")  # 거래 통화 — 가격·평단·체결 금액의 단위
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
     display_order: Mapped[int] = mapped_column(SmallInteger, server_default="0")

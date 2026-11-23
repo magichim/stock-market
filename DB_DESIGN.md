@@ -48,6 +48,7 @@ CREATE TABLE stocks (
     symbol        VARCHAR(12)  NOT NULL UNIQUE,   -- 거래소 종목코드 (예: 005930)
     name          VARCHAR(100) NOT NULL,          -- 삼성전자
     market        VARCHAR(10)  NOT NULL,          -- KOSPI | KOSDAQ | NASDAQ | NYSE
+    kind          VARCHAR(10)  NOT NULL DEFAULT 'stock' CHECK (kind IN ('stock', 'etf')),  -- 개별 종목 | ETF (시드에서 지정)
     currency      VARCHAR(3)   NOT NULL DEFAULT 'KRW',  -- 거래 통화 (시드: 시장 → 통화)
     is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
     display_order SMALLINT     NOT NULL DEFAULT 0,

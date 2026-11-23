@@ -13,6 +13,7 @@ MARKET_COUNTRY = {"KOSPI": "KR", "KOSDAQ": "KR", "NASDAQ": "US", "NYSE": "US"}
 # 환율을 수집할 통화 — KRW(기준, 1)는 SCHEMA_PATCHES에서 넣는다
 CURRENCIES = ["USD"]
 
+# (종목코드, 이름, 시장[, 종류]) — 종류를 생략하면 개별 종목(stock)
 STOCKS = [
     ("005930", "삼성전자", "KOSPI"),
     ("000660", "SK하이닉스", "KOSPI"),
@@ -35,6 +36,13 @@ STOCKS = [
     ("AVGO", "브로드컴", "NASDAQ"),
     ("NFLX", "넷플릭스", "NASDAQ"),
     ("AMD", "AMD", "NASDAQ"),
+    # KODEX 대표 ETF — 유가증권시장 상장
+    ("069500", "KODEX 200", "KOSPI", "etf"),
+    ("229200", "KODEX 코스닥150", "KOSPI", "etf"),
+    ("379800", "KODEX 미국S&P500", "KOSPI", "etf"),
+    ("379810", "KODEX 미국나스닥100", "KOSPI", "etf"),
+    ("091160", "KODEX 반도체", "KOSPI", "etf"),
+    ("305720", "KODEX 2차전지산업", "KOSPI", "etf"),
 ]
 
 
@@ -43,8 +51,9 @@ async def seed_stocks(conn: AsyncConnection) -> None:
     # 없는 종목만 넣는다 — 충돌로 버려지는 INSERT도 id 시퀀스를 소모해 재시작마다 번호가 비기 때문
     existing = set(await conn.scalars(select(Stock.symbol)))
     rows = [
-        {"symbol": symbol, "name": name, "market": market, "currency": MARKET_CURRENCY[market], "display_order": i}
-        for i, (symbol, name, market) in enumerate(STOCKS)
+        {"symbol": symbol, "name": name, "market": market, "kind": kind[0] if kind else "stock",
+         "currency": MARKET_CURRENCY[market], "display_order": i}
+        for i, (symbol, name, market, *kind) in enumerate(STOCKS)
         if symbol not in existing
     ]
     if rows:

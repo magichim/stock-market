@@ -41,6 +41,9 @@ SCHEMA_PATCHES: list[str] = [
             ALTER TABLE accounts ALTER COLUMN legacy_cash DROP NOT NULL;
         END IF;
     END $$""",
+    # 종목 종류 — 개별 종목(stock) | ETF. 컬럼이 생기기 전에 시드로 들어간 ETF 행을 맞춘다
+    "ALTER TABLE stocks ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'stock' CHECK (kind IN ('stock', 'etf'))",
+    "UPDATE stocks SET kind = 'etf' WHERE kind = 'stock' AND symbol IN ('069500', '229200', '379800', '379810', '091160', '305720')",
 ]
 
 

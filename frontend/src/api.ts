@@ -42,6 +42,7 @@ export interface Stock {
   symbol: string
   name: string
   market: string
+  kind: 'stock' | 'etf'
   currency: string
   price: number | null
   prev_close: number | null
@@ -121,6 +122,7 @@ export interface StockHit {
   symbol: string
   name: string
   market: string
+  kind: 'stock' | 'etf'
   currency: string
   price: number | null
 }
