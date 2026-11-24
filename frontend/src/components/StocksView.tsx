@@ -77,7 +77,7 @@ export function StocksView({
       {message && <p className="notice">{message}</p>}
       <ul className="stocks">
         {stocks.map((s) => {
-          const change = s.price && s.prev_close ? s.price / s.prev_close - 1 : 0
+          const change = s.price && s.close_price ? s.price / s.close_price - 1 : null
           return (
             <li key={s.symbol} id={`stock-${s.symbol}`} className={s.symbol === focused ? 'stock focused' : 'stock'}>
               <StockLogo symbol={s.symbol} name={s.name} size={40} />
@@ -89,7 +89,7 @@ export function StocksView({
               </div>
               <div className="stock-price num">
                 {s.price === null ? '—' : money(s.price, s.currency)}
-                <div className={trendClass(change)}>{pct(change)}</div>
+                <div className={change === null ? 'dim' : trendClass(change)}>{change === null ? '—' : pct(change)}</div>
               </div>
               {loggedIn && (
                 <div className="order">

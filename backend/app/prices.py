@@ -7,27 +7,31 @@
 import asyncio
 import logging
 import random
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Protocol
 
 import httpx
 from redis.asyncio import Redis
 from sqlalchemy import select, text
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .config import settings
 from .db import SessionLocal
 from .leaderboard import ACCOUNT_VALUES, refresh_realtime
 from .market import (
+    KST,
+    CLOSE_PRICE_AT,
     is_after_close,
+    is_kr_collect_day,
+    is_kr_prepare_time,
     is_kr_quote_time,
     is_kr_stock_quote_time,
     is_market_open,
-    is_nxt_refresh_time,
     now_kst,
 )
-from .models import FxRate, PriceTick, Stock
+from .models import FxRate, PriceTick, Stock, StockClose
 from .seed import MARKET_COUNTRY, MARKET_CURRENCY
 from .users import purge_deleted_users
 
@@ -104,9 +108,9 @@ provider: PriceProvider = PROVIDERS[settings.price_provider]()
 
 
 async def collect_prices(session: AsyncSession) -> None:
-    # 국내 종목은 NXT 포함 08:00–20:00(NXT 미거래 종목은 정규장 + 마감 뒤 한 번), 그 밖(미국)은 기존 장 시간에만 수집한다
+    # 국내 종목은 개장일의 NXT 포함 08:00–20:00(NXT 미거래 종목은 정규장 + 마감 뒤 한 번), 그 밖(미국)은 기존 장 시간에만 수집한다
     kst = now_kst()
-    is_open = {"KR": is_kr_quote_time(kst), "US": is_market_open(kst)}
+    is_open = {"KR": is_kr_quote_time(kst) and await is_kr_collect_day(kst), "US": is_market_open(kst)}
     markets = [m for m in MARKETS if is_open[MARKET_COUNTRY[m]]]
     stocks = [
         s
@@ -117,13 +121,10 @@ async def collect_prices(session: AsyncSession) -> None:
         return
     prices = await provider.fetch(stocks)
     now = datetime.now(timezone.utc)
-    today_start = now_kst().replace(hour=0, minute=0, second=0, microsecond=0)
     for s in stocks:
         price = prices.get(s.symbol)
         if price is None:
             continue
-        if s.last_price_at and s.last_price_at < today_start:  # 새 거래일 첫 틱 — 직전 최신가가 전일 종가
-            s.prev_close = s.last_price
         s.last_price, s.last_price_at = price, now
         session.add(PriceTick(stock_id=s.id, price=price, collected_at=now))
     await session.commit()
@@ -153,6 +154,20 @@ async def refresh_nxt(session: AsyncSession) -> None:
         if s.symbol in tradable:
             s.nxt_tradable = tradable[s.symbol]
     await session.commit()
+
+
+async def record_close(session: AsyncSession) -> None:
+    """국내 종목의 오늘(KST) 종가를 지금 조회한 가격으로 stock_closes에 넣는다 — 받은 종목만. stocks·price_ticks는 건드리지 않는다."""
+    kr = [m for m in MARKETS if MARKET_COUNTRY[m] == "KR"]
+    stocks = list(await session.scalars(select(Stock).where(Stock.is_active, Stock.market.in_(kr))))
+    if not stocks:
+        return
+    prices = await provider.fetch(stocks)
+    rows = [{"stock_id": s.id, "close_date": now_kst().date(), "price": prices[s.symbol]} for s in stocks if s.symbol in prices]
+    if rows:
+        stmt = insert(StockClose).values(rows)
+        await session.execute(stmt.on_conflict_do_update(index_elements=["stock_id", "close_date"], set_={"price": stmt.excluded.price}))
+        await session.commit()
 
 
 async def snapshot_equity(session: AsyncSession, day: date) -> None:
@@ -186,7 +201,8 @@ async def run_collector(redis: Redis) -> None:
     while True:
         now = now_kst()
         try:
-            if is_nxt_refresh_time(now):  # 06:00부터, 수집보다 먼저 — 수집 대상이 NXT 거래 여부로 갈린다
+            # 06:00부터, 수집보다 먼저 — 그날 개장일인지 확인하고(휴장일이면 국내 수집 없음) NXT 거래 여부를 갱신한다
+            if is_kr_prepare_time(now) and await is_kr_collect_day(now):
                 await _once_per_day(redis, "nxt", now.date(), refresh_nxt)
             if is_kr_quote_time(now) and await redis.set("stock:lock:collect", "1", nx=True, ex=max(interval - 1, 1)):
                 async with SessionLocal() as session:
@@ -199,3 +215,19 @@ async def run_collector(redis: Redis) -> None:
         except Exception:
             log.exception("price collector failed")
         await asyncio.sleep(interval)
+
+
+async def run_close_recorder(redis: Redis) -> None:
+    """개장일마다 CLOSE_PRICE_AT(KST 15:29:40)에 국내 종목의 종가(stock_closes)를 기록한다 — 수집 루프(run_collector)와 별개."""
+    while True:
+        now = now_kst()
+        target = datetime.combine(now.date(), CLOSE_PRICE_AT, KST)
+        if now >= target:
+            target += timedelta(days=1)
+        await asyncio.sleep((target - now).total_seconds())
+        try:
+            now = now_kst()
+            if now >= target and await is_kr_collect_day(now):
+                await _once_per_day(redis, "close", now.date(), record_close)
+        except Exception:
+            log.exception("close recorder failed")

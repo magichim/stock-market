@@ -21,7 +21,7 @@ def today_kst() -> str:
 
 # 국내 종목 시세는 초당 최대 10건 — KIS 한도(초당 20건)의 절반만 쓴다. 호출 간격은 vendor.MIN_INTERVAL과 별개로 지킨다
 DOMESTIC_INTERVAL = 0.1
-# 국내 개장일 캐시 {YYYYMMDD: 개장 여부} — KIS가 휴장일 조회는 1일 1회를 권하므로, 기준일부터 여러 날이 오는 응답을 모두 담아 둔다
+# 국내 개장일 캐시 {YYYYMMDD: 개장 여부} — 마지막으로 조회한 날짜 하나만 둔다 (KIS 권고대로 1일 1회 호출, 미리 받은 뒷날짜 값은 쓰지 않는다)
 _trading_days: dict[str, bool] = {}
 
 # stocks.market → KIS 해외 거래소 코드. 없으면 국내(KRX)
@@ -63,10 +63,13 @@ def _collect(codes: list[str], fetch, interval: float = 0) -> dict:
 def is_trading_day(day: str) -> bool:
     """국내 주식시장 개장일(opnd_yn)인지. 조회에 실패하면 KisError — 캐시하지 않아 다음 호출 때 다시 조회한다."""
     if day not in _trading_days:
-        res = vendor.call("domestic_stock/chk_holiday", {"bass_dt": day})
-        _trading_days.update({r["bass_dt"]: r["opnd_yn"] == "Y" for r in res["data"] or []})
-        if day not in _trading_days:
+        # 첫 페이지만 — 기준일은 첫 행에 있고, 뒤 페이지(미래 날짜)까지 받으면 한 번 확인에 KIS를 11번 부른다
+        res = vendor.call("domestic_stock/chk_holiday", {"bass_dt": day}, max_depth=0)
+        opnd = next((r["opnd_yn"] for r in res["data"] or [] if r["bass_dt"] == day), None)
+        if opnd is None:
             raise vendor.KisError(502, (res["error"] or {}).get("message") or "휴장일 조회 결과 없음")
+        _trading_days.clear()
+        _trading_days[day] = opnd == "Y"
     return _trading_days[day]
 
 

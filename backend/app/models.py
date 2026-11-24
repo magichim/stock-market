@@ -46,7 +46,6 @@ class Stock(Base):
     display_order: Mapped[int] = mapped_column(SmallInteger, server_default="0")
     last_price: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     last_price_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
-    prev_close: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     created_at: Mapped[datetime] = _now()
 
 
@@ -61,6 +60,17 @@ class PriceTick(Base):
     stock_id: Mapped[int] = mapped_column(ForeignKey("stocks.id", ondelete="CASCADE"))
     price: Mapped[Decimal] = mapped_column(Numeric(14, 2))
     collected_at: Mapped[datetime] = _now()
+
+
+class StockClose(Base):
+    """국내 종목의 날짜별 종가 — 개장일 15:29:40(KST)에 조회한 가격. 등락률 기준(전 거래일 종가)으로 쓴다."""
+
+    __tablename__ = "stock_closes"
+    __table_args__ = (CheckConstraint("price > 0"),)
+
+    stock_id: Mapped[int] = mapped_column(ForeignKey("stocks.id", ondelete="CASCADE"), primary_key=True)
+    close_date: Mapped[date] = mapped_column(Date, primary_key=True)  # KST 날짜
+    price: Mapped[Decimal] = mapped_column(Numeric(14, 2))
 
 
 class FxRate(Base):

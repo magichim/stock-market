@@ -40,7 +40,7 @@ GET /api/internal/users ··user_id··▶ accounts ──┬── holdings ─
 
 ### stocks
 
-가격을 수집하는 종목 목록("특정 기업 리스트"). 시드(`app/seed.py`)로 넣고 `is_active`로 수집 대상을 켜고 끈다. `last_price`/`last_price_at`은 수집기가 매 틱마다 갱신하는 **최신가 캐시**로, 체결가·평가액 계산이 매번 `price_ticks`를 뒤지지 않게 한다. `prev_close`는 전 거래일 마지막 가격(등락률 표시용).
+가격을 수집하는 종목 목록("특정 기업 리스트"). 시드(`app/seed.py`)로 넣고 `is_active`로 수집 대상을 켜고 끈다. `last_price`/`last_price_at`은 수집기가 매 틱마다 갱신하는 **최신가 캐시**로, 체결가·평가액 계산이 매번 `price_ticks`를 뒤지지 않게 한다. 등락률 기준인 전 거래일 종가는 `stock_closes`에 있다.
 
 ```sql
 CREATE TABLE stocks (
@@ -55,7 +55,6 @@ CREATE TABLE stocks (
     display_order SMALLINT     NOT NULL DEFAULT 0,
     last_price    NUMERIC(14,2),                  -- 최신가, 종목 통화 (수집기 갱신)
     last_price_at TIMESTAMPTZ,                    -- 최신가 수집 시각
-    prev_close    NUMERIC(14,2),                  -- 전 거래일 종가
     created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 ```
@@ -75,6 +74,19 @@ CREATE TABLE price_ticks (
 ```
 
 규모: 종목 30개 × 7틱/일(1시간 주기) × 250거래일 ≈ 연 5만 행. 주기를 1분으로 줄이면 연 300만 행 수준. 장기 차트가 필요해지면 일봉 집계 테이블을 추가한다.
+
+### stock_closes
+
+국내 종목의 날짜별 종가. 수집 주기와 별개로 개장일 15:29:40(KST)에 한 번 조회해 넣는다 (`KR_MARKET.md`). 종목 목록의 등락률은 최신가가 찍힌 날보다 앞선 마지막 행과 비교한다 — 행이 없으면 등락률을 표시하지 않는다. 해외 종목은 기록하지 않는다.
+
+```sql
+CREATE TABLE stock_closes (
+    stock_id   BIGINT        NOT NULL REFERENCES stocks(id) ON DELETE CASCADE,
+    close_date DATE          NOT NULL,            -- KST 날짜
+    price      NUMERIC(14,2) NOT NULL CHECK (price > 0),
+    PRIMARY KEY (stock_id, close_date)
+);
+```
 
 ### fx_rates
 
@@ -241,6 +253,7 @@ predict-market과 같은 Redis를 쓰므로 키는 모두 `stock:` 접두어를 
 | `stock:lock:collect` | STRING (NX, EX 주기−1초) | 워커가 여러 개여도(uvicorn `--workers 2`) 한 주기에 한 워커만 가격을 수집 |
 | `stock:lock:purge:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 탈퇴 사용자 정리를 하루 한 번만 (실패 시 키 삭제 후 재시도) |
 | `stock:lock:snapshot:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 장 마감 스냅샷을 하루 한 번만 (실패 시 키 삭제 후 재시도) |
+| `stock:lock:close:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 국내 종목 종가(`stock_closes`) 기록(15:29:40)을 하루 한 번만 |
 | `stock:lock:nxt:{YYYY-MM-DD}` | STRING (NX, EX 2일) | NXT 거래 종목 여부(`stocks.nxt_tradable`) 갱신을 하루 한 번만 (실패 시 키 삭제 후 재시도) |
 
 ## 설계 결정 요약

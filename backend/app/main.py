@@ -12,7 +12,7 @@ from sqlalchemy import text
 from .auth import CurrentUser, get_optional_user, origin_allowed
 from .config import settings
 from .db import Base, apply_schema_patches, engine, ensure_database
-from .prices import run_collector
+from .prices import run_close_recorder, run_collector
 from .routers.leaderboard import router as leaderboard_router
 from .routers.stocks import router as stocks_router
 from .routers.trading import router as trading_router
@@ -34,9 +34,10 @@ async def lifespan(app: FastAPI):
         await apply_schema_patches(conn)
         await seed_stocks(conn)
     app.state.redis = aioredis.from_url(settings.redis_url, decode_responses=True)
-    collector = asyncio.create_task(run_collector(app.state.redis))
+    tasks = [asyncio.create_task(job(app.state.redis)) for job in (run_collector, run_close_recorder)]
     yield
-    collector.cancel()
+    for task in tasks:
+        task.cancel()
     await app.state.redis.aclose()
     await engine.dispose()
     await users_client.aclose()

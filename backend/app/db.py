@@ -45,6 +45,8 @@ SCHEMA_PATCHES: list[str] = [
     "ALTER TABLE stocks ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'stock' CHECK (kind IN ('stock', 'etf'))",
     # NXT(넥스트레이드) 거래 종목 여부 — 수집기가 하루 한 번 KIS로 확인해 채운다
     "ALTER TABLE stocks ADD COLUMN IF NOT EXISTS nxt_tradable BOOLEAN NOT NULL DEFAULT false",
+    # 전일 종가는 stock_closes(날짜별 종가)에서 읽는다
+    "ALTER TABLE stocks DROP COLUMN IF EXISTS prev_close",
     "UPDATE stocks SET kind = 'etf' WHERE kind = 'stock' AND symbol IN ('069500', '229200', '379800', '379810', '091160', '305720')",
 ]
 

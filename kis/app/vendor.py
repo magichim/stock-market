@@ -186,11 +186,14 @@ def _to_json(value):
     return value
 
 
-def call(key: str, args: dict) -> dict:
-    """샘플 함수를 호출해 {"data", "error"}를 돌려준다. error는 KIS가 돌려준 오류(없으면 None)."""
+def call(key: str, args: dict, max_depth: int | None = None) -> dict:
+    """샘플 함수를 호출해 {"data", "error"}를 돌려준다. error는 KIS가 돌려준 오류(없으면 None).
+
+    max_depth: 샘플 함수가 스스로 이어 받는 다음 페이지 수의 상한 (0이면 첫 페이지만). 생략하면 샘플 기본값.
+    """
     start, error = time.monotonic(), None
     try:
-        res = _invoke(key, args)
+        res = _invoke(key, args, max_depth)
         error = res["error"] and res["error"]["message"]
         return res
     except KisError as e:
@@ -205,7 +208,7 @@ def call(key: str, args: dict) -> dict:
         })
 
 
-def _invoke(key: str, args: dict) -> dict:
+def _invoke(key: str, args: dict, max_depth: int | None) -> dict:
     global _last_error
     api = APIS.get(key)
     if api is None:
@@ -224,6 +227,8 @@ def _invoke(key: str, args: dict) -> dict:
     missing = [p["name"] for p in api.params if p["required"] and p["name"] not in kwargs]
     if missing:
         raise KisError(400, f"필수 파라미터 누락: {', '.join(missing)}")
+    if max_depth is not None:
+        kwargs["max_depth"] = max_depth
     with _lock:
         ka = _kis_auth()
         _ensure_auth(ka)

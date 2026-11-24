@@ -48,7 +48,7 @@ export interface Stock {
   kind: 'stock' | 'etf'
   currency: string
   price: number | null
-  prev_close: number | null
+  close_price: number | null // 전 거래일 종가 — 없으면 등락률을 표시하지 않는다
   price_at: string | null
   tradable: boolean // 지금 주문할 수 있는지 (휴장일·장 구간·NXT 거래 여부 반영)
 }

@@ -21,8 +21,10 @@ NXT_SESSIONS = ((time(8, 0), time(8, 50)), (CLOSE, time(20, 0)))
 # 국내 종목 시세 수집 시간 — NXT 프리마켓 시작부터 애프터마켓 끝까지 (NXT 미거래 종목은 is_kr_stock_quote_time으로 더 거른다)
 KR_QUOTE_OPEN, KR_QUOTE_CLOSE = time(8, 0), time(20, 0)
 
-# NXT 거래 종목 여부(stocks.nxt_tradable)를 갱신하기 시작하는 시각 — 프리마켓(08:00) 전에 끝내고, 실패해도 다시 시도할 여유를 둔다
-NXT_REFRESH_OPEN = time(6, 0)
+# 그날 개장일 확인과 NXT 거래 종목 여부(stocks.nxt_tradable) 갱신을 시작하는 시각 — 프리마켓(08:00) 전에 끝내고, 실패해도 다시 시도할 여유를 둔다
+KR_PREPARE_OPEN = time(6, 0)
+# 국내 종목의 종가(stock_closes)를 기록하는 시각 — 정규장 마감 20초 전, 수집 주기와 별개로 하루 한 번
+CLOSE_PRICE_AT = time(15, 29, 40)
 CLOSE_SETTLE = timedelta(minutes=10)  # 정규장 마감 뒤 종가가 확정됐다고 보는 여유
 
 Session = Literal["regular", "nxt"]
@@ -44,17 +46,22 @@ def is_market_open(now: datetime) -> bool:
 
 
 def is_kr_quote_time(now: datetime) -> bool:
-    """국내 종목 시세를 수집할 시간인지 (평일 08:00–20:00, NXT 포함). 휴장일은 KIS 게이트웨이가 거른다."""
+    """국내 종목 시세를 수집할 시간인지 (평일 08:00–20:00, NXT 포함). 휴장일은 is_kr_collect_day로 따로 거른다."""
     if settings.ignore_market_hours:
         return True
     return now.weekday() < 5 and KR_QUOTE_OPEN <= now.time() < KR_QUOTE_CLOSE
 
 
-def is_nxt_refresh_time(now: datetime) -> bool:
-    """NXT 거래 종목 여부를 갱신할 시간인지 (평일 06:00부터 수집이 끝나는 20:00까지 — 하루 한 번은 호출하는 쪽이 지킨다)."""
+def is_kr_prepare_time(now: datetime) -> bool:
+    """개장일 확인·NXT 거래 종목 여부 갱신을 할 시간인지 (평일 06:00부터 수집이 끝나는 20:00까지)."""
     if settings.ignore_market_hours:
         return True
-    return now.weekday() < 5 and NXT_REFRESH_OPEN <= now.time() < KR_QUOTE_CLOSE
+    return now.weekday() < 5 and KR_PREPARE_OPEN <= now.time() < KR_QUOTE_CLOSE
+
+
+async def is_kr_collect_day(now: datetime) -> bool:
+    """수집기가 오늘 국내 종목을 다룰지 — 개장일일 때만 (확인 결과는 워커 메모리에 그날 하루 남는다)."""
+    return settings.ignore_market_hours or await is_kr_trading_day(now.date())
 
 
 def is_kr_stock_quote_time(stock: Stock, now: datetime) -> bool:

@@ -5,7 +5,7 @@ from sqlalchemy import func, or_, select
 
 from ..db import SessionLocal
 from ..market import is_tradable, kr_session, now_kst
-from ..models import PriceTick, Stock
+from ..models import PriceTick, Stock, StockClose
 
 router = APIRouter(prefix="/api/stocks")
 
@@ -13,7 +13,22 @@ router = APIRouter(prefix="/api/stocks")
 @router.get("")
 async def list_stocks() -> dict:
     async with SessionLocal() as session:
-        stocks = await session.scalars(select(Stock).where(Stock.is_active).order_by(Stock.display_order, Stock.symbol))
+        # 등락률 기준 — 최신가가 찍힌 날(KST)보다 앞선 마지막 종가. 그날 15:29:40에 기록되는 당일 종가는 애프터마켓에도 쓰지 않는다
+        close_price = (
+            select(StockClose.price)
+            .where(
+                StockClose.stock_id == Stock.id,
+                StockClose.close_date < func.date(func.timezone("Asia/Seoul", Stock.last_price_at)),
+            )
+            .order_by(StockClose.close_date.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        rows = (
+            await session.execute(
+                select(Stock, close_price).where(Stock.is_active).order_by(Stock.display_order, Stock.symbol)
+            )
+        ).all()
         now = now_kst()
         kr = await kr_session(now)
         return {
@@ -26,11 +41,11 @@ async def list_stocks() -> dict:
                     "kind": s.kind,
                     "currency": s.currency,
                     "price": float(s.last_price) if s.last_price is not None else None,
-                    "prev_close": float(s.prev_close) if s.prev_close is not None else None,
+                    "close_price": float(close) if close is not None else None,  # 전 거래일 종가 — 없으면 등락률 없음
                     "price_at": s.last_price_at,
                     "tradable": is_tradable(s, now, kr),  # 지금 주문할 수 있는지
                 }
-                for s in stocks
+                for s, close in rows
             ],
         }
 
