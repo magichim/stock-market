@@ -5,6 +5,7 @@
 /quotes  수집기용 묶음 조회 (quotes.py)
 """
 
+import logging
 import os
 import sys
 import time
@@ -18,6 +19,10 @@ from fastapi.staticfiles import StaticFiles
 
 from . import quotes, vendor
 from .config import settings
+
+# 로그 시각은 KST(UTC+9 고정). 샘플 함수의 logging.basicConfig보다 먼저 설정해 그 형식(시각 없음)을 덮는다
+logging.basicConfig(level=logging.INFO, format="%(asctime)s KST %(levelname)s %(name)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+logging.getLogger().handlers[0].formatter.converter = lambda t: time.gmtime(t + 9 * 3600)
 
 STATIC = Path(__file__).parent / "static"
 STARTED = time.time()
