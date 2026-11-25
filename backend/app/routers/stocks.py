@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/stocks")
 @router.get("")
 async def list_stocks() -> dict:
     async with SessionLocal() as session:
-        # 등락률 기준 — 최신가가 찍힌 날(KST)보다 앞선 마지막 종가. 그날 15:29:40에 기록되는 당일 종가는 애프터마켓에도 쓰지 않는다
+        # 등락률 기준 — 최신가가 찍힌 날(KST)보다 앞선 마지막 종가. 그날 15:29:00에 기록되는 당일 종가는 애프터마켓에도 쓰지 않는다
         close_price = (
             select(StockClose.price)
             .where(

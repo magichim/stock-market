@@ -22,10 +22,9 @@ NXT_SESSIONS = ((time(8, 0), time(8, 50)), (CLOSE, time(20, 0)))
 KR_QUOTE_OPEN, KR_QUOTE_CLOSE = time(8, 0), time(20, 0)
 
 # 그날 개장일 확인과 NXT 거래 종목 여부(stocks.nxt_tradable) 갱신을 시작하는 시각 — 프리마켓(08:00) 전에 끝내고, 실패해도 다시 시도할 여유를 둔다
-KR_PREPARE_OPEN = time(6, 0)
-# 국내 종목의 종가(stock_closes)를 기록하는 시각 — 정규장 마감 20초 전, 수집 주기와 별개로 하루 한 번
-CLOSE_PRICE_AT = time(15, 29, 40)
-CLOSE_SETTLE = timedelta(minutes=10)  # 정규장 마감 뒤 종가가 확정됐다고 보는 여유
+KR_PREPARE_OPEN = time(4, 0)
+# 국내 종목의 종가(stock_closes)를 기록하는 시각 — 정규장 마감 1분 전, 수집 주기와 별개로 하루 한 번
+CLOSE_PRICE_AT = time(15, 29)
 
 Session = Literal["regular", "nxt"]
 
@@ -38,6 +37,12 @@ def now_kst() -> datetime:
     return datetime.now(timezone.utc).astimezone(KST)
 
 
+def next_collect_at(after: datetime, interval: int) -> datetime:
+    """after(KST) 다음 수집 회차 — KST 자정부터 interval초 간격 (interval=1200이면 매시 00·20·40분)."""
+    midnight = datetime.combine(after.date(), time(), KST)
+    return midnight + timedelta(seconds=((after - midnight).total_seconds() // interval + 1) * interval)
+
+
 def is_market_open(now: datetime) -> bool:
     """정규장 시간표만 본다 (휴장일 미반영) — 해외 종목의 수집·거래 시간으로 쓴다."""
     if settings.ignore_market_hours:
@@ -46,14 +51,14 @@ def is_market_open(now: datetime) -> bool:
 
 
 def is_kr_quote_time(now: datetime) -> bool:
-    """국내 종목 시세를 수집할 시간인지 (평일 08:00–20:00, NXT 포함). 휴장일은 is_kr_collect_day로 따로 거른다."""
+    """국내 종목 시세를 수집할 시간인지 (평일 08:00–20:00, NXT 포함 — 애프터마켓 마감 20:00 회차까지). 휴장일은 is_kr_collect_day로 따로 거른다."""
     if settings.ignore_market_hours:
         return True
-    return now.weekday() < 5 and KR_QUOTE_OPEN <= now.time() < KR_QUOTE_CLOSE
+    return now.weekday() < 5 and KR_QUOTE_OPEN <= now.time() <= KR_QUOTE_CLOSE
 
 
 def is_kr_prepare_time(now: datetime) -> bool:
-    """개장일 확인·NXT 거래 종목 여부 갱신을 할 시간인지 (평일 06:00부터 수집이 끝나는 20:00까지)."""
+    """개장일 확인·NXT 거래 종목 여부 갱신을 할 시간인지 (평일 04:00부터 수집이 끝나는 20:00까지)."""
     if settings.ignore_market_hours:
         return True
     return now.weekday() < 5 and KR_PREPARE_OPEN <= now.time() < KR_QUOTE_CLOSE
@@ -67,13 +72,10 @@ async def is_kr_collect_day(now: datetime) -> bool:
 def is_kr_stock_quote_time(stock: Stock, now: datetime) -> bool:
     """수집 시간(is_kr_quote_time) 안에서 이 국내 종목을 수집할지.
 
-    NXT 거래 종목은 내내, 그 밖은 정규장과 마감 뒤 종가를 받을 때까지만 — 프리·애프터마켓에는 값이 바뀌지 않는다.
-    종가는 마감 CLOSE_SETTLE 뒤에 수집한 값이어야 확정된 것으로 본다 (15:30 정각 수집은 종가 반영 전일 수 있다).
+    NXT 거래 종목은 내내, 그 밖은 정규장(09:00–15:30, 15:30 회차 포함)에만 — 프리·애프터마켓에는 값이 바뀌지 않는다.
+    수집 주기와 무관하게 시간표로만 정한다. 그날 종가는 CLOSE_PRICE_AT에 stock_closes로 따로 기록한다.
     """
-    if settings.ignore_market_hours or stock.nxt_tradable or OPEN <= now.time() < CLOSE:
-        return True
-    close = now.replace(hour=CLOSE.hour, minute=CLOSE.minute, second=0, microsecond=0)
-    return now >= close and (stock.last_price_at is None or stock.last_price_at < close + CLOSE_SETTLE)
+    return settings.ignore_market_hours or stock.nxt_tradable or OPEN <= now.time() <= CLOSE
 
 
 def is_after_close(now: datetime) -> bool:
