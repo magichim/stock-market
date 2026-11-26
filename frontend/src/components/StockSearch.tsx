@@ -6,7 +6,7 @@ import { StockLogo } from './StockLogo'
 const DEBOUNCE_MS = 250
 
 // 헤더 종목 검색 — 입력이 멈추면 검색 API를 호출하고, 결과를 입력창 아래 목록으로 보여준다
-export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }) {
+export function StockSearch({ onSelect }: { onSelect: (hit: StockHit) => void }) {
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<StockHit[]>([])
   const [open, setOpen] = useState(false)
@@ -46,7 +46,7 @@ export function StockSearch({ onSelect }: { onSelect: (symbol: string) => void }
   }, [open])
 
   const select = (hit: StockHit) => {
-    onSelect(hit.symbol)
+    onSelect(hit)
     setQuery('')
     setHits([])
     setOpen(false)

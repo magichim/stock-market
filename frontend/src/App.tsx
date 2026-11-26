@@ -1,18 +1,28 @@
 import { useEffect, useState } from 'react'
-import { fetchEvents, fetchMe, loginUrl, logout, type StockEvent, type User } from './api'
+import { fetchEvents, fetchMe, loginUrl, logout, type StockEvent, type StockHit, type User } from './api'
 import { AccountView } from './components/AccountView'
 import { LeaderboardView } from './components/LeaderboardView'
 import { StockSearch } from './components/StockSearch'
 import { StocksView } from './components/StocksView'
 
-type Tab = 'stocks' | 'account' | 'leaderboard'
-const TABS: { key: Tab; label: string; path: string }[] = [
-  { key: 'stocks', label: '종목', path: '/' },
-  { key: 'account', label: '내 계좌', path: '/account' },
-  { key: 'leaderboard', label: '리더보드', path: '/leaderboard' },
+// 화면 — 종목은 국내·해외를 URL로 나눈다
+type Tab = 'domestic' | 'overseas' | 'account' | 'leaderboard'
+const PATHS: Record<Tab, string> = {
+  domestic: '/domestic',
+  overseas: '/overseas',
+  account: '/account',
+  leaderboard: '/leaderboard',
+}
+// 헤더 메뉴 — '종목'은 국내·해외 화면을 함께 가리킨다
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'domestic', label: '종목' },
+  { key: 'account', label: '내 계좌' },
+  { key: 'leaderboard', label: '리더보드' },
 ]
-// URL 경로 → 탭. 모르는 경로는 종목 탭 (서버는 모든 경로에 index.html을 준다)
-const tabFromPath = () => TABS.find((t) => t.path === window.location.pathname)?.key ?? 'stocks'
+const menuKey = (tab: Tab) => (tab === 'overseas' ? 'domestic' : tab)
+// URL 경로 → 화면. 모르는 경로(/ 포함)는 국내 종목 (서버는 모든 경로에 index.html을 준다)
+const tabFromPath = () =>
+  (Object.keys(PATHS) as Tab[]).find((t) => PATHS[t] === window.location.pathname) ?? 'domestic'
 
 export function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -55,13 +65,17 @@ export function App() {
 
   const name = user ? (user.display_name ?? user.username) : ''
   // 탭 메뉴 — PC는 헤더 네비게이션, 768px 이하는 오른쪽 드롭다운 안에 같은 버튼을 둔다
+  // 화면 이동 — 다른 화면이면 URL도 바꾼다
+  const go = (next: Tab) => {
+    if (PATHS[next] !== window.location.pathname) window.history.pushState(null, '', PATHS[next])
+    setTab(next)
+  }
   const tabButtons = TABS.map((t) => (
     <button
       key={t.key}
-      className={t.key === tab ? 'active' : ''}
+      className={t.key === menuKey(tab) ? 'active' : ''}
       onClick={() => {
-        if (t.key !== tab) window.history.pushState(null, '', t.path)
-        setTab(t.key)
+        if (t.key !== menuKey(tab)) go(t.key)
         setMenuOpen(false)
       }}
     >
@@ -70,11 +84,10 @@ export function App() {
   ))
   const toggleMenu = () => setMenuOpen((open) => !open)
 
-  // 검색 결과 선택 — 종목 탭으로 가서 그 종목으로 스크롤
-  const goToStock = (symbol: string) => {
-    if (tab !== 'stocks') window.history.pushState(null, '', '/')
-    setTab('stocks')
-    setFocus({ symbol })
+  // 검색 결과 선택 — 국내(KRW)·해외 종목 화면으로 가서 그 종목으로 스크롤
+  const goToStock = (hit: StockHit) => {
+    go(hit.currency === 'KRW' ? 'domestic' : 'overseas')
+    setFocus({ symbol: hit.symbol })
   }
 
   return (
@@ -137,7 +150,16 @@ export function App() {
           </div>
         )}
 
-        {tab === 'stocks' && <StocksView loggedIn={!!user} event={event || undefined} focus={focus} />}
+        {(tab === 'domestic' || tab === 'overseas') && (
+          <StocksView
+            key={tab}
+            domestic={tab === 'domestic'}
+            onMarket={(domestic) => go(domestic ? 'domestic' : 'overseas')}
+            loggedIn={!!user}
+            event={event || undefined}
+            focus={focus}
+          />
+        )}
         {tab === 'account' &&
           (user ? <AccountView event={event || undefined} /> : <p className="dim">로그인하면 내 계좌를 볼 수 있습니다.</p>)}
         {tab === 'leaderboard' && <LeaderboardView events={events} />}

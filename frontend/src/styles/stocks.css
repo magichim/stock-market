@@ -19,6 +19,34 @@
   min-width: 0;
 }
 
+/* 종목 구분 필터 (전체·단일·ETF) — 국내·해외 탭 아래 작은 칩 */
+.kind-filter {
+  display: flex;
+  gap: 6px;
+}
+
+.kind-filter button {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.kind-filter button.active {
+  border-color: var(--main);
+  background: var(--main);
+  color: #fff;
+}
+
+/* 전일 종가 · 현재가 — 오른쪽 정렬 */
+.stock-close,
+.stock-price {
+  text-align: right;
+}
+
 .stocks strong {
   font-size: 15px;
 }

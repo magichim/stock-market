@@ -10,8 +10,19 @@ from ..models import PriceTick, Stock, StockClose
 router = APIRouter(prefix="/api/stocks")
 
 
-@router.get("")
-async def list_stocks() -> dict:
+@router.get("/domestic")
+async def domestic_stocks() -> dict:
+    """국내 종목(KRW) 목록."""
+    return await list_stocks(Stock.currency == "KRW")
+
+
+@router.get("/overseas")
+async def overseas_stocks() -> dict:
+    """해외 종목(KRW 외 통화) 목록."""
+    return await list_stocks(Stock.currency != "KRW")
+
+
+async def list_stocks(region) -> dict:
     async with SessionLocal() as session:
         # 등락률 기준 — 최신가가 찍힌 날(KST)보다 앞선 마지막 종가. 그날 15:29:00에 기록되는 당일 종가는 애프터마켓에도 쓰지 않는다
         close_price = (
@@ -26,7 +37,7 @@ async def list_stocks() -> dict:
         )
         rows = (
             await session.execute(
-                select(Stock, close_price).where(Stock.is_active).order_by(Stock.display_order, Stock.symbol)
+                select(Stock, close_price).where(Stock.is_active, region).order_by(Stock.display_order, Stock.symbol)
             )
         ).all()
         now = now_kst()

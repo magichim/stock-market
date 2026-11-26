@@ -135,7 +135,8 @@ export interface StockHit {
 export const searchStocks = async (q: string, signal?: AbortSignal) =>
   json<StockHit[]>(await send(`/api/stocks/search?q=${encodeURIComponent(q)}`, { signal }))
 
-export const fetchStocks = async () => json<{ session: MarketSession; stocks: Stock[] }>(await send('/api/stocks'))
+export const fetchStocks = async (domestic: boolean) =>
+  json<{ session: MarketSession; stocks: Stock[] }>(await send(`/api/stocks/${domestic ? 'domestic' : 'overseas'}`))
 export const fetchEvents = async () => json<StockEvent[]>(await send('/api/events'))
 export const fetchAccount = async (event?: string) => json<Account>(await send(`/api/account${eventQuery(event)}`))
 export const fetchTrades = async (event?: string) => json<Trade[]>(await send(`/api/account/trades${eventQuery(event)}`))
