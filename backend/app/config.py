@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # 이 서비스 주소 — CSRF Origin 검사에 쓴다
     site_url: str = "https://stock.agisaja.com"
 
+    # 실행 환경. dev는 수집·종가 기록을 정해진 시각보다 30초 늦게 실행한다 — 같은 KIS 앱키를 쓰는 운영과 호출 시각이 겹쳐 초당 호출 한도에 걸리지 않게
+    app_env: Literal["prod", "dev"] = "prod"
+
     # 이 서비스 전용 DB (DB_DESIGN.md)
     database_url: str = "postgresql+asyncpg://dev@localhost:5432/stock_market"
     # predict-market과 같은 Redis를 써도 된다 — 키는 모두 stock: 접두어

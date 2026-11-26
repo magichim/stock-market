@@ -23,6 +23,7 @@ from .leaderboard import ACCOUNT_VALUES, refresh_realtime
 from .market import (
     KST,
     CLOSE_PRICE_AT,
+    SCHEDULE_DELAY,
     is_after_close,
     is_kr_collect_day,
     is_kr_prepare_time,
@@ -200,10 +201,11 @@ async def run_collector(redis: Redis) -> None:
     interval = settings.price_interval_seconds
     tick = now_kst()
     while True:
-        # KST 자정부터 interval 간격의 회차(예: 매시 00·20·40분)에 깨어난다 — 시작·재시작 시각, 수집 소요 시간과 무관
-        tick = next_collect_at(max(tick, now_kst()), interval)
-        await asyncio.sleep((tick - now_kst()).total_seconds())
-        now = tick  # 판단은 회차 시각으로 — sleep이 몇 ms 늦게 깨도 20:00 회차는 20:00으로 본다
+        # KST 자정부터 interval 간격의 회차(예: 매시 00·20·40분)에 깨어난다 — 시작·재시작 시각, 수집 소요 시간과 무관.
+        # 실제 실행은 SCHEDULE_DELAY 뒤 (dev 30초)
+        tick = next_collect_at(max(tick, now_kst() - SCHEDULE_DELAY), interval)
+        await asyncio.sleep((tick + SCHEDULE_DELAY - now_kst()).total_seconds())
+        now = tick  # 판단은 회차 시각으로 — 늦게 깨도(dev 지연 포함) 20:00 회차는 20:00으로 본다
         try:
             # 04:00부터, 수집보다 먼저 — 그날 개장일인지 확인하고(휴장일이면 국내 수집 없음) NXT 거래 여부를 갱신한다
             if is_kr_prepare_time(now) and await is_kr_collect_day(now):
@@ -221,15 +223,18 @@ async def run_collector(redis: Redis) -> None:
 
 
 async def run_close_recorder(redis: Redis) -> None:
-    """개장일마다 CLOSE_PRICE_AT(KST 15:29:00)에 국내 종목의 종가(stock_closes)를 기록한다 — 수집 루프(run_collector)와 별개."""
+    """개장일마다 CLOSE_PRICE_AT(KST 15:29:00)에 국내 종목의 종가(stock_closes)를 기록한다 — 수집 루프(run_collector)와 별개.
+
+    실제 실행은 SCHEDULE_DELAY 뒤 (dev 15:29:30).
+    """
     while True:
-        now = now_kst()
+        now = now_kst() - SCHEDULE_DELAY
         target = datetime.combine(now.date(), CLOSE_PRICE_AT, KST)
         if now >= target:
             target += timedelta(days=1)
-        await asyncio.sleep((target - now).total_seconds())
+        await asyncio.sleep((target + SCHEDULE_DELAY - now_kst()).total_seconds())
         try:
-            now = now_kst()
+            now = now_kst() - SCHEDULE_DELAY
             if now >= target and await is_kr_collect_day(now):
                 await _once_per_day(redis, "close", now.date(), record_close)
         except Exception:
