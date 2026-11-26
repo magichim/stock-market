@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -21,9 +20,6 @@ from .seed import seed_stocks
 from .users import client as users_client
 from .users import fetch_users
 
-# 로그 시각은 KST(UTC+9 고정) — 서버의 시스템 시간대와 무관하다
-logging.basicConfig(level=logging.INFO, format="%(asctime)s KST %(levelname)s %(name)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
-logging.getLogger().handlers[0].formatter.converter = lambda t: time.gmtime(t + 9 * 3600)
 log = logging.getLogger(__name__)
 
 

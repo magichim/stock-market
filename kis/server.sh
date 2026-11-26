@@ -30,7 +30,7 @@ start() {
     log "시작 실패 — port $PORT 사용 중 (pid $(port_pids | tr '\n' ' ')) — 다른 프로세스. './server.sh stop'으로 정리 가능"; exit 1
   fi
   log "시작 시도 (port $PORT, ${mode_flags[*]})"
-  nohup uv run uvicorn app.main:app --host 127.0.0.1 --port "$PORT" "${mode_flags[@]}" --timeout-graceful-shutdown 3 \
+  nohup uv run uvicorn app.main:app --host 127.0.0.1 --port "$PORT" "${mode_flags[@]}" --timeout-graceful-shutdown 3 --log-config log.json \
     >>"$LOG_FILE" 2>&1 </dev/null &
   echo $! >"$PID_FILE"
   # HTTP 응답까지 기다린다

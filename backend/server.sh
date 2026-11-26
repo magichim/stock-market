@@ -25,7 +25,7 @@ start() {
     log "시작 실패 — port $PORT 사용 중 (pid $(port_pids | tr '\n' ' ')) — 다른 프로세스. './server.sh stop'으로 정리 가능"; exit 1
   fi
   log "시작 시도 (port $PORT, ${mode_flags[*]})"
-  nohup uv run uvicorn app.main:app --port "$PORT" "${mode_flags[@]}" --timeout-graceful-shutdown 3 \
+  nohup uv run uvicorn app.main:app --port "$PORT" "${mode_flags[@]}" --timeout-graceful-shutdown 3 --log-config log.json \
     >>"$LOG_FILE" 2>&1 </dev/null &
   echo $! >"$PID_FILE"
   # 포트는 worker 기동(lifespan, 스키마 패치) 전에 열리므로 HTTP 응답까지 기다린다

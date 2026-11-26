@@ -28,7 +28,7 @@ predict-market(프론트 5173, 백엔드 8000)이 먼저 떠 있어야 로그인
 # 백엔드 — localhost:8100
 cd backend
 cp .env.example .env   # JWT_SECRET·INTERNAL_API_TOKEN을 predict-market과 같게, 로컬은 ACCESS_COOKIE=at, INTERNAL_PREDICT_API_URL=http://localhost:8000
-uv run uvicorn app.main:app --port 8100 --reload
+uv run uvicorn app.main:app --port 8100 --reload --log-config log.json
 
 # 프론트 — localhost:5273 (/api는 8100으로 프록시)
 cd frontend
@@ -56,4 +56,4 @@ cd frontend && npm ci && npm run build
 cd ../backend && ./server.sh restart   # start|dev|stop|restart|status|log, PORT 기본 8100
 ```
 
-`server.sh`는 `uv run uvicorn app.main:app --port 8100 --workers 2`를 백그라운드로 띄우고 pid·로그를 `backend/.run/`에 둔다.
+`server.sh`는 `uv run uvicorn app.main:app --port 8100 --workers 2 --log-config log.json`를 백그라운드로 띄우고 pid·로그를 `backend/.run/`에 둔다.
