@@ -124,7 +124,9 @@ async def kr_session(now: datetime) -> Session | None:
 
 
 def is_tradable(stock: Stock, now: datetime, session: Session | None) -> bool:
-    """session은 kr_session(now). 국내 종목은 정규장이면 모두, NXT 구간이면 NXT 거래 종목만. 해외 종목은 정규장 시간표."""
+    """session은 kr_session(now). 국내 종목은 정규장이면 모두, NXT 구간이면 NXT 거래 종목만 — 거래정지 종목은 언제나 불가. 해외 종목은 정규장 시간표."""
     if MARKET_COUNTRY[stock.market] != "KR":
         return is_market_open(now)
+    if stock.trading_halted:
+        return False
     return session == "regular" or (session == "nxt" and stock.nxt_tradable)

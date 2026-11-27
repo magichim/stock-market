@@ -142,23 +142,26 @@ def trading_day(day: str | None = None) -> dict:
 
 @router.get("/nxt")
 def nxt(symbols: str) -> dict:
-    """symbols: '005930,069500' — 국내 종목이 지금 NXT(넥스트레이드)에서 거래되는 종목인지.
+    """symbols: '005930,069500' — 국내 종목이 지금 NXT(넥스트레이드)에서 거래되는 종목인지와 거래정지 종목인지.
 
-    주식기본조회의 NXT 거래종목여부(cptt_trad_tr_psbl_yn)가 Y이고 NXT 거래정지(nxt_tr_stop_yn)가 아닐 때 true.
+    tradable: 주식기본조회의 NXT 거래종목여부(cptt_trad_tr_psbl_yn)가 Y이고 NXT 거래정지(nxt_tr_stop_yn)가 아닐 때 true.
+    halted: 같은 응답의 거래정지여부(tr_stop_yn)가 Y면 true. 값이 Y·N이 아니면 빠진다.
     """
     rows, errors = _rows(
         [s for s in symbols.split(",") if s],
         lambda symbol: ("domestic_stock/search_stock_info", {"prdt_type_cd": "300", "pdno": symbol}),  # 300: 주식·ETF·ETN·ELW
         DOMESTIC_INTERVAL,
     )
-    tradable = {}
+    tradable, halted = {}, {}
     for code, row in rows.items():
+        if (row or {}).get("tr_stop_yn") in ("Y", "N"):
+            halted[code] = row["tr_stop_yn"] == "Y"
         listed = (row or {}).get("cptt_trad_tr_psbl_yn")
         if listed in ("Y", "N"):
             tradable[code] = listed == "Y" and row.get("nxt_tr_stop_yn") != "Y"
         else:
             errors.setdefault(code, "값 없음")
-    return {"tradable": tradable, "errors": {c: e for c, e in errors.items() if c not in tradable}}
+    return {"tradable": tradable, "halted": halted, "errors": {c: e for c, e in errors.items() if c not in tradable}}
 
 
 @router.get("/fx")

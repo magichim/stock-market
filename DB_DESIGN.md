@@ -50,6 +50,7 @@ CREATE TABLE stocks (
     market        VARCHAR(10)  NOT NULL,          -- KOSPI | KOSDAQ | NASDAQ | NYSE
     kind          VARCHAR(10)  NOT NULL DEFAULT 'stock' CHECK (kind IN ('stock', 'etf')),  -- 개별 종목 | ETF (시드에서 지정)
     nxt_tradable  BOOLEAN      NOT NULL DEFAULT FALSE,  -- NXT 거래 종목 — 수집기가 하루 한 번 갱신 (KR_MARKET.md)
+    trading_halted BOOLEAN     NOT NULL DEFAULT FALSE,  -- 국내 거래정지 — 주문 불가. 수집기가 하루 한 번 갱신 (KR_MARKET.md)
     currency      VARCHAR(3)   NOT NULL DEFAULT 'KRW',  -- 거래 통화 (시드: 시장 → 통화)
     is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
     display_order SMALLINT     NOT NULL DEFAULT 0,
@@ -254,7 +255,7 @@ predict-market과 같은 Redis를 쓰므로 키는 모두 `stock:` 접두어를 
 | `stock:lock:purge:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 탈퇴 사용자 정리를 하루 한 번만 (실패 시 키 삭제 후 재시도) |
 | `stock:lock:snapshot:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 장 마감 스냅샷을 하루 한 번만 (실패 시 키 삭제 후 재시도) |
 | `stock:lock:close:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 국내 종목 종가(`stock_closes`) 기록(15:30:00)을 하루 한 번만. 15:30이 수집 회차와 겹치면 수집 루프가 기록에 성공한 뒤 설정하고, 없으면 그날 다음 회차가 다시 기록한다 |
-| `stock:lock:nxt:{YYYY-MM-DD}` | STRING (NX, EX 2일) | NXT 거래 종목 여부(`stocks.nxt_tradable`) 갱신을 하루 한 번만 (실패 시 키 삭제 후 재시도) |
+| `stock:lock:nxt:{YYYY-MM-DD}` | STRING (NX, EX 2일) | NXT 거래 종목 여부(`stocks.nxt_tradable`)·거래정지 여부(`stocks.trading_halted`) 갱신을 하루 한 번만 (실패 시 키 삭제 후 재시도) |
 
 ## 설계 결정 요약
 

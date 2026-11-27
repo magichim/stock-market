@@ -83,6 +83,8 @@ async def _check_tradable(stock: Stock | None, event: Event | None) -> None:
     if stock is None:
         if not is_market_open(now):
             raise HTTPException(409, "장 운영 시간이 아닙니다.")
+    elif stock.trading_halted:
+        raise HTTPException(409, "거래정지 종목입니다.")
     else:
         session = await kr_session(now)
         if not is_tradable(stock, now, session):

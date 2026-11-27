@@ -50,8 +50,8 @@ class PriceProvider(Protocol):
         """통화 → 1단위당 KRW. 받지 못한 통화는 빼고 반환한다."""
         ...
 
-    async def fetch_nxt(self, stocks: list[Stock]) -> dict[str, bool]:
-        """국내 종목코드 → NXT 거래 종목 여부. 확인하지 못한 종목은 빼고 반환한다."""
+    async def fetch_nxt(self, stocks: list[Stock]) -> tuple[dict[str, bool], dict[str, bool]]:
+        """(국내 종목코드 → NXT 거래 종목 여부, 국내 종목코드 → 거래정지 여부). 확인하지 못한 종목은 빼고 반환한다."""
         ...
 
 
@@ -71,8 +71,8 @@ class MockProvider:
             for r in rates
         }
 
-    async def fetch_nxt(self, stocks: list[Stock]) -> dict[str, bool]:
-        return {}  # mock은 NXT 거래 여부를 모른다 — 기존 값을 그대로 둔다
+    async def fetch_nxt(self, stocks: list[Stock]) -> tuple[dict[str, bool], dict[str, bool]]:
+        return {}, {}  # mock은 NXT 거래 여부·거래정지를 모른다 — 기존 값을 그대로 둔다
 
 
 class KisProvider:
@@ -96,14 +96,9 @@ class KisProvider:
         body = await self._get("/quotes/fx", currencies=",".join(r.currency for r in rates))
         return {code: Decimal(value) for code, value in body["prices"].items()}
 
-    async def fetch_nxt(self, stocks: list[Stock]) -> dict[str, bool]:
-        async with httpx.AsyncClient(base_url=settings.kis_api_url, timeout=120) as client:
-            res = await client.get("/quotes/nxt", params={"symbols": ",".join(s.symbol for s in stocks)})
-        res.raise_for_status()
-        body = res.json()
-        if body["errors"]:
-            log.warning("kis /quotes/nxt: %s", body["errors"])
-        return body["tradable"]
+    async def fetch_nxt(self, stocks: list[Stock]) -> tuple[dict[str, bool], dict[str, bool]]:
+        body = await self._get("/quotes/nxt", symbols=",".join(s.symbol for s in stocks))
+        return body["tradable"], body.get("halted", {})  # halted가 없는 이전 게이트웨이도 받는다
 
 
 # 수집 대상 — PRICE_COUNTRIES에 적힌 국가의 시장과 그 통화만
@@ -155,17 +150,35 @@ async def collect_fx(session: AsyncSession) -> None:
     await session.commit()
 
 
+NXT_BATCH = 200  # /quotes/nxt 한 번에 넘기는 종목 수 — 게이트웨이가 종목마다 KIS를 불러(0.1초 간격) 대기 시간(120초) 안에 끝나게
+
+
 async def refresh_nxt(session: AsyncSession) -> None:
-    """국내 종목의 NXT 거래 여부(stocks.nxt_tradable)를 갱신한다 — 확인된 종목만 바꾼다."""
+    """국내 종목의 NXT 거래 여부(stocks.nxt_tradable)와 거래정지 여부(stocks.trading_halted)를 갱신한다 — 확인된 종목만 바꾼다.
+
+    NXT_BATCH개씩 나눠 요청하고 묶음마다 저장한다. 실패한 묶음이 있으면 나머지를 마친 뒤 예외를 내 다음 회차에 다시 시도한다.
+    """
     kr = [m for m, c in MARKET_COUNTRY.items() if c == "KR"]
     stocks = list(await session.scalars(select(Stock).where(Stock.is_active, Stock.market.in_(kr))))
-    if not stocks:
-        return
-    tradable = await provider.fetch_nxt(stocks)
-    for s in stocks:
-        if s.symbol in tradable:
-            s.nxt_tradable = tradable[s.symbol]
-    await session.commit()
+    failed = 0
+    for i in range(0, len(stocks), NXT_BATCH):
+        batch = stocks[i:i + NXT_BATCH]
+        try:
+            tradable, halted = await provider.fetch_nxt(batch)
+        except Exception:
+            log.exception("NXT 갱신 묶음 실패 (%d–%d번째 종목)", i + 1, i + len(batch))
+            failed += 1
+            continue
+        for s in batch:
+            if s.symbol in tradable:
+                s.nxt_tradable = tradable[s.symbol]
+            if s.symbol in halted:
+                if s.trading_halted != halted[s.symbol]:
+                    log.info("거래정지 %s: %s %s", "지정" if halted[s.symbol] else "해제", s.symbol, s.name)
+                s.trading_halted = halted[s.symbol]
+        await session.commit()
+    if failed:
+        raise RuntimeError(f"NXT 갱신 묶음 {failed}개 실패 — 다음 회차에 다시 시도한다")
 
 
 async def record_close(session: AsyncSession) -> None:
