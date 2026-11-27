@@ -19,7 +19,7 @@
   min-width: 0;
 }
 
-/* 종목 구분 필터 (전체·단일·ETF) — 국내·해외 탭 아래 작은 칩 */
+/* 종목 구분 필터 (KOSPI·KOSDAQ·단일·ETF) — 국내·해외 탭 아래 작은 칩 */
 .kind-filter {
   display: flex;
   gap: 6px;

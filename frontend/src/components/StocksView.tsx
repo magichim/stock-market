@@ -18,13 +18,9 @@ const MARKETS = [
   { label: '해외주식', domestic: false },
 ]
 
-// 종목 구분 필터
-type Kind = 'all' | Stock['kind']
-const KINDS: { key: Kind; label: string }[] = [
-  { key: 'all', label: '전체' },
-  { key: 'stock', label: '단일' },
-  { key: 'etf', label: 'ETF' },
-]
+// 종목 구분 — 국내는 시장(KOSPI·KOSDAQ), 해외는 단일. ETF는 따로 모은다. 종목이 없는 구분은 숨긴다
+const GROUP_ORDER = ['KOSPI', 'KOSDAQ', '단일', 'ETF']
+const groupOf = (s: Stock) => (s.kind === 'etf' ? 'ETF' : s.currency === 'KRW' ? s.market : '단일')
 
 // 국내(/api/stocks/domestic) 또는 해외(/api/stocks/overseas) 종목 목록 + 시장가 매수·매도. 가격은 30초마다 다시 읽는다 (서버 수집 주기 기본 1시간)
 export function StocksView({
@@ -45,12 +41,13 @@ export function StocksView({
   const [session, setSession] = useState<MarketSession>(null)
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [message, setMessage] = useState('')
-  const [kind, setKind] = useState<Kind>('all')
-  // 검색으로 종목을 고르면 필터를 전체로 — 스크롤 effect보다 먼저 반영되도록 렌더 중에 바꾼다
-  const [prevFocus, setPrevFocus] = useState(focus)
-  if (focus !== prevFocus) {
-    setPrevFocus(focus)
-    setKind('all')
+  const [group, setGroup] = useState('')
+  // 검색으로 고른 종목이 목록에 들어오면 그 종목의 구분으로 바꾼다 — 렌더 중에 바꿔 스크롤 effect보다 먼저 반영한다
+  const [shown, setShown] = useState<typeof focus>(null)
+  const target = focus !== shown ? stocks.find((s) => s.symbol === focus?.symbol) : undefined
+  if (target) {
+    setShown(focus)
+    setGroup(groupOf(target))
   }
   // 진행 중인 주문 — 끝날 때까지 모든 주문 버튼을 막고, 누른 버튼은 '매수 중'처럼 표시한다
   const [pending, setPending] = useState<{ symbol: string; side: 'buy' | 'sell' } | null>(null)
@@ -72,15 +69,15 @@ export function StocksView({
     return () => clearInterval(timer)
   }, [load])
 
-  // 검색에서 고른 종목으로 스크롤 — 목록이 아직 없으면 불러온 뒤에
+  // 검색에서 고른 종목으로 스크롤 — 그 종목이 목록에 들어온 뒤에
   const [focused, setFocused] = useState<string | null>(null)
   useEffect(() => {
-    if (!focus || !loaded) return
-    document.getElementById(`stock-${focus.symbol}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    setFocused(focus.symbol)
+    if (!shown) return
+    document.getElementById(`stock-${shown.symbol}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setFocused(shown.symbol)
     const timer = setTimeout(() => setFocused(null), 1600)
     return () => clearTimeout(timer)
-  }, [focus, loaded])
+  }, [shown])
 
   const trade = async (symbol: string, side: 'buy' | 'sell') => {
     const quantity = quantities[symbol] || 1
@@ -97,7 +94,9 @@ export function StocksView({
   const sideLabel = (symbol: string, side: 'buy' | 'sell') =>
     `${side === 'buy' ? '매수' : '매도'}${pending?.symbol === symbol && pending.side === side ? ' 중' : ''}`
 
-  const list = stocks.filter((s) => kind === 'all' || s.kind === kind)
+  const groups = GROUP_ORDER.filter((g) => stocks.some((s) => groupOf(s) === g))
+  const current = groups.includes(group) ? group : groups[0]
+  const list = stocks.filter((s) => groupOf(s) === current)
 
   // 종목 한 줄
   const stockRow = (s: Stock) => {
@@ -152,9 +151,9 @@ export function StocksView({
         ))}
       </nav>
       <div className="kind-filter">
-        {KINDS.map((k) => (
-          <button key={k.key} className={k.key === kind ? 'active' : ''} onClick={() => setKind(k.key)}>
-            {k.label}
+        {groups.map((g) => (
+          <button key={g} className={g === current ? 'active' : ''} onClick={() => setGroup(g)}>
+            {g}
           </button>
         ))}
       </div>
