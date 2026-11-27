@@ -23,8 +23,8 @@ KR_QUOTE_OPEN, KR_QUOTE_CLOSE = time(8, 0), time(20, 0)
 
 # 그날 개장일 확인과 NXT 거래 종목 여부(stocks.nxt_tradable) 갱신을 시작하는 시각 — 프리마켓(08:00) 전에 끝내고, 실패해도 다시 시도할 여유를 둔다
 KR_PREPARE_OPEN = time(4, 0)
-# 국내 종목의 종가(stock_closes)를 기록하는 시각 — 정규장 마감 1분 전, 수집 주기와 별개로 하루 한 번
-CLOSE_PRICE_AT = time(15, 29)
+# 국내 종목의 종가(stock_closes)를 기록하는 시각 — 정규장 마감 시각, 수집 주기와 별개로 하루 한 번
+CLOSE_PRICE_AT = time(15, 30)
 # 수집 회차·종가 기록을 실제로 실행하는 지연 — APP_ENV=dev면 30초. 판단(시간표·날짜)은 원래 시각으로 한다
 SCHEDULE_DELAY = timedelta(seconds=30 if settings.app_env == "dev" else 0)
 

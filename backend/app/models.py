@@ -63,7 +63,7 @@ class PriceTick(Base):
 
 
 class StockClose(Base):
-    """국내 종목의 날짜별 종가 — 개장일 15:29:00(KST)에 조회한 가격. 등락률 기준(전 거래일 종가)으로 쓴다."""
+    """국내 종목의 날짜별 종가 — 개장일 15:30:00(KST)에 조회한 가격. 등락률 기준(전 거래일 종가)으로 쓴다."""
 
     __tablename__ = "stock_closes"
     __table_args__ = (CheckConstraint("price > 0"),)

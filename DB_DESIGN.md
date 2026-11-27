@@ -77,7 +77,7 @@ CREATE TABLE price_ticks (
 
 ### stock_closes
 
-국내 종목의 날짜별 종가. 수집 주기와 별개로 개장일 15:29:00(KST)에 한 번 조회해 넣는다 (`KR_MARKET.md`). 종목 목록의 등락률은 최신가가 찍힌 날보다 앞선 마지막 행과 비교한다 — 행이 없으면 등락률을 표시하지 않는다. 해외 종목은 기록하지 않는다.
+국내 종목의 날짜별 종가. 수집 주기와 별개로 개장일 15:30:00(KST)에 한 번 조회해 넣는다 (`KR_MARKET.md`). 종목 목록의 등락률은 최신가가 찍힌 날보다 앞선 마지막 행과 비교한다 — 행이 없으면 등락률을 표시하지 않는다. 해외 종목은 기록하지 않는다.
 
 ```sql
 CREATE TABLE stock_closes (
@@ -253,7 +253,7 @@ predict-market과 같은 Redis를 쓰므로 키는 모두 `stock:` 접두어를 
 | `stock:lock:collect` | STRING (NX, EX 주기−1초) | 워커가 여러 개여도(uvicorn `--workers 2`) 한 주기에 한 워커만 가격을 수집 |
 | `stock:lock:purge:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 탈퇴 사용자 정리를 하루 한 번만 (실패 시 키 삭제 후 재시도) |
 | `stock:lock:snapshot:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 장 마감 스냅샷을 하루 한 번만 (실패 시 키 삭제 후 재시도) |
-| `stock:lock:close:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 국내 종목 종가(`stock_closes`) 기록(15:29:00)을 하루 한 번만 |
+| `stock:lock:close:{YYYY-MM-DD}` | STRING (NX, EX 2일) | 국내 종목 종가(`stock_closes`) 기록(15:30:00)을 하루 한 번만 |
 | `stock:lock:nxt:{YYYY-MM-DD}` | STRING (NX, EX 2일) | NXT 거래 종목 여부(`stocks.nxt_tradable`) 갱신을 하루 한 번만 (실패 시 키 삭제 후 재시도) |
 
 ## 설계 결정 요약

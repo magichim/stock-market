@@ -223,9 +223,9 @@ async def run_collector(redis: Redis) -> None:
 
 
 async def run_close_recorder(redis: Redis) -> None:
-    """개장일마다 CLOSE_PRICE_AT(KST 15:29:00)에 국내 종목의 종가(stock_closes)를 기록한다 — 수집 루프(run_collector)와 별개.
+    """개장일마다 CLOSE_PRICE_AT(KST 15:30:00)에 국내 종목의 종가(stock_closes)를 기록한다 — 수집 루프(run_collector)와 별개.
 
-    실제 실행은 SCHEDULE_DELAY 뒤 (dev 15:29:30).
+    실제 실행은 SCHEDULE_DELAY 뒤 (dev 15:30:30).
     """
     while True:
         now = now_kst() - SCHEDULE_DELAY
