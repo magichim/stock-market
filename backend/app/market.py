@@ -45,6 +45,11 @@ def next_collect_at(after: datetime, interval: int) -> datetime:
     return midnight + timedelta(seconds=((after - midnight).total_seconds() // interval + 1) * interval)
 
 
+def is_collect_tick(t: time, interval: int) -> bool:
+    """t(KST 시각)가 수집 회차와 겹치는지 — next_collect_at과 같은 기준."""
+    return (t.hour * 3600 + t.minute * 60 + t.second) % interval == 0
+
+
 def is_market_open(now: datetime) -> bool:
     """정규장 시간표만 본다 (휴장일 미반영) — 해외 종목의 수집·거래 시간으로 쓴다."""
     if settings.ignore_market_hours:
