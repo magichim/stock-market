@@ -17,7 +17,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import quotes, vendor
-from .config import settings
+from .config import ROOT, settings
 
 STATIC = Path(__file__).parent / "static"
 STARTED = time.time()
@@ -84,5 +84,16 @@ def apis_page() -> FileResponse:
 
 
 def run() -> None:
-    """`uv run kis-gateway [--reload]` — 로그인이 없으므로 127.0.0.1에만 바인딩한다."""
-    uvicorn.run("app.main:app", host="127.0.0.1", port=int(os.environ.get("PORT", 8200)), reload="--reload" in sys.argv)
+    """`uv run kis-gateway [--reload]` — 로그인이 없으므로 127.0.0.1에만 바인딩한다.
+
+    server.sh와 같게 로그는 log.json(KST), 프로세스 시간대는 KST(토큰 만료 판단용)로 둔다.
+    """
+    os.environ.setdefault("TZ", "KST-9")
+    time.tzset()
+    uvicorn.run(
+        "app.main:app",
+        host="127.0.0.1",
+        port=int(os.environ.get("PORT", 8200)),
+        reload="--reload" in sys.argv,
+        log_config=str(ROOT / "log.json"),
+    )

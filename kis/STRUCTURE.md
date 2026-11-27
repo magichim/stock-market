@@ -123,7 +123,7 @@ backend 수집기가 쓰는 묶음 조회. 종목 하나가 실패해도 나머�
 ## 시간
 
 - 게이트웨이 코드는 시각을 UTC로 얻고, KIS에 넘기는 날짜만 KST(UTC+9 고정)로 바꾼다 (`quotes.today_kst`).
-- KIS 샘플(`vendor/kis_auth.py`)은 토큰 만료를 시스템 시간으로 판단한다. KIS가 만료 시각을 한국 시간으로 주므로 `server.sh`가 프로세스 시간대를 `TZ=KST-9`로 고정한다. `server.sh` 없이 직접 띄울 때도 같은 값을 준다.
+- KIS 샘플(`vendor/kis_auth.py`)은 토큰 만료를 시스템 시간으로 판단한다. KIS가 만료 시각을 한국 시간으로 주므로 `server.sh`가 프로세스 시간대를 `TZ=KST-9`로 고정한다. `uv run kis-gateway`(`main.run`)도 같은 값과 `log.json`을 쓴다. `uvicorn`을 직접 띄울 때는 `TZ=KST-9`와 `--log-config log.json`을 직접 준다.
 
 ## 아직 없는 것
 
