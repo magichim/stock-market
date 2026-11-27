@@ -42,8 +42,8 @@ log = logging.getLogger(__name__)
 
 
 class PriceProvider(Protocol):
-    async def fetch(self, stocks: list[Stock]) -> dict[str, Decimal]:
-        """종목코드 → 현재가. 받지 못한 종목은 빼고 반환한다."""
+    async def fetch(self, stocks: list[Stock]) -> tuple[dict[str, Decimal], dict[str, Decimal]]:
+        """(종목코드 → 현재가, 국내 종목코드 → 전일 확정 종가). 받지 못한 종목은 빼고 반환한다."""
         ...
 
     async def fetch_fx(self, rates: list[FxRate]) -> dict[str, Decimal]:
@@ -58,11 +58,12 @@ class PriceProvider(Protocol):
 class MockProvider:
     """랜덤 워크 — 직전가에서 ±1% 안에서 움직인다. 실 거래소 API 연동 전 개발용."""
 
-    async def fetch(self, stocks: list[Stock]) -> dict[str, Decimal]:
-        return {
+    async def fetch(self, stocks: list[Stock]) -> tuple[dict[str, Decimal], dict[str, Decimal]]:
+        prices = {
             s.symbol: max(Decimal(1), ((s.last_price or Decimal(50_000 if s.currency == "KRW" else 100)) * Decimal(1 + random.uniform(-0.01, 0.01))).quantize(Decimal(1)))
             for s in stocks
         }
+        return prices, {}  # mock은 전일 종가를 모른다
 
     async def fetch_fx(self, rates: list[FxRate]) -> dict[str, Decimal]:
         return {
@@ -77,20 +78,23 @@ class MockProvider:
 class KisProvider:
     """KIS 게이트웨이(kis/)의 묶음 조회 — 받지 못한 종목·통화는 응답에서 빠져 있다."""
 
-    async def _prices(self, path: str, **params: str) -> dict[str, Decimal]:
+    async def _get(self, path: str, **params: str) -> dict:
         async with httpx.AsyncClient(base_url=settings.kis_api_url, timeout=120) as client:
             res = await client.get(path, params=params)
         res.raise_for_status()
         body = res.json()
         if body["errors"]:
             log.warning("kis %s: %s", path, body["errors"])
-        return {code: Decimal(value) for code, value in body["prices"].items()}
+        return body
 
-    async def fetch(self, stocks: list[Stock]) -> dict[str, Decimal]:
-        return await self._prices("/quotes/stocks", items=",".join(f"{s.symbol}:{s.market}" for s in stocks))
+    async def fetch(self, stocks: list[Stock]) -> tuple[dict[str, Decimal], dict[str, Decimal]]:
+        body = await self._get("/quotes/stocks", items=",".join(f"{s.symbol}:{s.market}" for s in stocks))
+        prev_closes = body.get("prev_closes", {})  # prev_closes가 없는 이전 게이트웨이도 받는다
+        return {c: Decimal(v) for c, v in body["prices"].items()}, {c: Decimal(v) for c, v in prev_closes.items()}
 
     async def fetch_fx(self, rates: list[FxRate]) -> dict[str, Decimal]:
-        return await self._prices("/quotes/fx", currencies=",".join(r.currency for r in rates))
+        body = await self._get("/quotes/fx", currencies=",".join(r.currency for r in rates))
+        return {code: Decimal(value) for code, value in body["prices"].items()}
 
     async def fetch_nxt(self, stocks: list[Stock]) -> dict[str, bool]:
         async with httpx.AsyncClient(base_url=settings.kis_api_url, timeout=120) as client:
@@ -115,6 +119,8 @@ async def collect_prices(session: AsyncSession, kst: datetime, all_kr: bool = Fa
 
     kst는 수집 회차 시각. 국내 종목은 개장일의 NXT 포함 08:00–20:00(NXT 미거래 종목은 정규장 09:00–15:30만), 그 밖(미국)은 기존 장 시간에만 수집한다.
     all_kr이면 수집 시간 안의 국내 종목을 NXT 거래 여부와 무관하게 모두 수집한다 (종가를 남길 회차).
+
+    국내 종목은 그날 첫 수집 때 KIS가 준 전일 확정 종가로 stock_closes를 바로잡는다 (_correct_closes).
     """
     is_open = {"KR": is_kr_quote_time(kst) and await is_kr_collect_day(kst), "US": is_market_open(kst)}
     markets = [m for m in MARKETS if is_open[MARKET_COUNTRY[m]]]
@@ -125,7 +131,8 @@ async def collect_prices(session: AsyncSession, kst: datetime, all_kr: bool = Fa
     ]
     if not stocks:
         return {}
-    prices = await provider.fetch(stocks)
+    prices, prev_closes = await provider.fetch(stocks)
+    await _correct_closes(session, stocks, prev_closes, kst.date())  # last_price_at을 바꾸기 전에
     now = datetime.now(timezone.utc)
     collected = {s: prices[s.symbol] for s in stocks if s.symbol in prices}
     for s, price in collected.items():
@@ -167,7 +174,7 @@ async def record_close(session: AsyncSession) -> None:
     stocks = list(await session.scalars(select(Stock).where(Stock.is_active, Stock.market.in_(kr))))
     if not stocks:
         return
-    prices = await provider.fetch(stocks)
+    prices, _ = await provider.fetch(stocks)
     await save_closes(session, {s: prices[s.symbol] for s in stocks if s.symbol in prices}, now_kst().date())
 
 
@@ -175,10 +182,35 @@ async def save_closes(session: AsyncSession, prices: dict[Stock, Decimal], day: 
     """국내 종목의 day(KST) 종가를 stock_closes에 넣는다 — 같은 날 행이 있으면 덮어쓴다. 국내 종목만 넣고, 넣은 행이 있으면 True."""
     rows = [{"stock_id": s.id, "close_date": day, "price": p} for s, p in prices.items() if MARKET_COUNTRY[s.market] == "KR"]
     if rows:
-        stmt = insert(StockClose).values(rows)
-        await session.execute(stmt.on_conflict_do_update(index_elements=["stock_id", "close_date"], set_={"price": stmt.excluded.price}))
+        await _upsert_closes(session, rows)
         await session.commit()
     return bool(rows)
+
+
+async def _upsert_closes(session: AsyncSession, rows: list[dict]) -> None:
+    """stock_closes에 (stock_id, close_date, price) 행을 넣는다 — 같은 날 행이 있고 값이 다를 때만 바꾼다."""
+    stmt = insert(StockClose).values(rows)
+    await session.execute(stmt.on_conflict_do_update(
+        index_elements=["stock_id", "close_date"], set_={"price": stmt.excluded.price}, where=StockClose.price != stmt.excluded.price,
+    ))
+
+
+async def _correct_closes(session: AsyncSession, stocks: list[Stock], prev_closes: dict[str, Decimal], today: date) -> None:
+    """KIS가 준 전일 확정 종가로 마지막 수집일의 stock_closes를 바로잡는다 — 그날 행이 없으면 넣고, 다르면 바꾼다.
+
+    15:30:00 기록(run_close_recorder)은 종가 단일가 체결 전 값일 수 있고, 기록이 빠진 날도 있다.
+    KIS 응답에는 "전일"이 며칠인지 없으므로, 그날 첫 수집 직전의 last_price_at(KST 날짜)을 전 거래일로 본다.
+    그래서 같은 날 두 번째 수집부터는 건너뛴다. 마지막 수집일이 7일보다 오래되면(서버가 전 거래일에 꺼져 있었을 수 있음) 쓰지 않는다.
+    """
+    rows = []
+    for s in stocks:
+        if MARKET_COUNTRY[s.market] != "KR" or s.symbol not in prev_closes or s.last_price_at is None:
+            continue
+        last_day = s.last_price_at.astimezone(KST).date()
+        if today - timedelta(days=7) <= last_day < today:
+            rows.append({"stock_id": s.id, "close_date": last_day, "price": prev_closes[s.symbol]})
+    if rows:
+        await _upsert_closes(session, rows)
 
 
 async def snapshot_equity(session: AsyncSession, day: date) -> None:

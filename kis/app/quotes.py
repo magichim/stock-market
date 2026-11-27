@@ -19,8 +19,10 @@ KST = timezone(timedelta(hours=9), "KST")
 def today_kst() -> str:
     return datetime.now(timezone.utc).astimezone(KST).strftime("%Y%m%d")
 
-# 국내 종목 시세는 초당 최대 10건 — KIS 한도(초당 20건)의 절반만 쓴다. 호출 간격은 vendor.MIN_INTERVAL과 별개로 지킨다
+# 국내 종목 조회는 초당 최대 10건 — KIS 한도(초당 20건)의 절반만 쓴다. 호출 간격은 vendor.MIN_INTERVAL과 별개로 지킨다
 DOMESTIC_INTERVAL = 0.1
+# 관심종목(멀티종목) 시세조회 한 번에 넣을 수 있는 종목 수
+MULTI_SIZE = 30
 # 국내 개장일 캐시 {YYYYMMDD: 개장 여부} — 마지막으로 조회한 날짜 하나만 둔다 (KIS 권고대로 1일 1회 호출, 미리 받은 뒷날짜 값은 쓰지 않는다)
 _trading_days: dict[str, bool] = {}
 
@@ -60,6 +62,35 @@ def _collect(codes: list[str], fetch, interval: float = 0) -> dict:
     return {"prices": prices, "errors": {c: kis_errors.get(c, "값 없음") for c in rows if c not in prices}}
 
 
+def _domestic(codes: list[str]) -> dict:
+    """국내 종목 현재가 — 관심종목(멀티종목) 시세조회로 MULTI_SIZE개씩 묶어 DOMESTIC_INTERVAL 간격으로 호출한다.
+
+    UN(KRX+NXT 통합) 현재가(inter2_prpr)는 종목별 inquire_price(UN)의 stck_prpr와 같다 (2026-11-28 357종목 확인).
+    prev_closes는 전일(직전 개장일) 확정 종가(inter2_prdy_clpr) — KRX 정규장 종가라 UN·J가 같다.
+    """
+    prices, errors, prev_closes = {}, {}, {}
+    last = 0.0
+    for i in range(0, len(codes), MULTI_SIZE):
+        chunk = codes[i:i + MULTI_SIZE]
+        time.sleep(max(0.0, last + DOMESTIC_INTERVAL - time.monotonic()))
+        last = time.monotonic()
+        args = {}
+        for n, code in enumerate(chunk, 1):
+            args[f"fid_cond_mrkt_div_code_{n}"], args[f"fid_input_iscd_{n}"] = "UN", code
+        res = vendor.call("domestic_stock/intstock_multprice", args)
+        rows = {r["inter_shrn_iscd"]: r for r in res["data"] or []}
+        reason = (res["error"] or {}).get("message") or "값 없음"
+        for code in chunk:
+            row = rows.get(code) or {}
+            if row.get("inter2_prdy_clpr") not in (None, "", "0"):
+                prev_closes[code] = row["inter2_prdy_clpr"]
+            if row.get("inter2_prpr") in (None, "", "0"):
+                errors[code] = reason
+            else:
+                prices[code] = row["inter2_prpr"]
+    return {"prices": prices, "errors": errors, "prev_closes": prev_closes}
+
+
 def is_trading_day(day: str) -> bool:
     """국내 주식시장 개장일(opnd_yn)인지. 조회에 실패하면 KisError — 캐시하지 않아 다음 호출 때 다시 조회한다."""
     if day not in _trading_days:
@@ -78,6 +109,7 @@ def stocks(items: str) -> dict:
     """items: '005930:KOSPI,AAPL:NASDAQ' — 종목코드:시장.
 
     국내 종목은 휴장일 조회를 먼저 거쳐 오늘(KST)이 개장일일 때만 시세를 받는다. 아니면 errors에 사유를 담는다.
+    국내 종목은 prev_closes {코드: 전일 확정 종가}도 함께 돌려준다 (해외 종목은 없음).
     """
     markets = dict(i.split(":") for i in items.split(",") if i)
     domestic = [s for s, m in markets.items() if m not in OVERSEAS]
@@ -90,15 +122,12 @@ def stocks(items: str) -> dict:
         if reason:
             skipped = dict.fromkeys(domestic, reason)
 
-    def fetch(symbol):
-        excd = OVERSEAS.get(markets[symbol])
-        if excd:
-            return "overseas_stock/price", {"auth": "", "excd": excd, "symb": symbol}, "last"
-        return "domestic_stock/inquire_price", {"fid_cond_mrkt_div_code": "UN", "fid_input_iscd": symbol}, "stck_prpr"  # UN: KRX+NXT 통합
-
-    # 국내는 초당 10건 간격으로, 해외는 그 뒤에 이어서 조회한다
-    result = _collect([s for s in domestic if s not in skipped], fetch, DOMESTIC_INTERVAL)
-    overseas = _collect([s for s in markets if s not in domestic], fetch)
+    # 국내는 30종목씩 묶어 초당 10건 간격으로, 해외는 그 뒤에 종목마다 이어서 조회한다
+    result = _domestic([s for s in domestic if s not in skipped])
+    overseas = _collect(
+        [s for s in markets if s not in domestic],
+        lambda s: ("overseas_stock/price", {"auth": "", "excd": OVERSEAS[markets[s]], "symb": s}, "last"),
+    )
     result["prices"].update(overseas["prices"])
     result["errors"].update(overseas["errors"] | skipped)
     return result
