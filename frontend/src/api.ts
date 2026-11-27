@@ -137,6 +137,9 @@ export const searchStocks = async (q: string, signal?: AbortSignal) =>
 
 export const fetchStocks = async (domestic: boolean) =>
   json<{ session: MarketSession; stocks: Stock[] }>(await send(`/api/stocks/${domestic ? 'domestic' : 'overseas'}`))
+// 주요 지수·환율 — 실패한 항목은 price·prev_close가 null
+export type MarketIndex = { name: string; price: number | null; prev_close: number | null }
+export const fetchIndices = async () => json<MarketIndex[]>(await send('/api/indices'))
 export const fetchEvents = async () => json<StockEvent[]>(await send('/api/events'))
 export const fetchAccount = async (event?: string) => json<Account>(await send(`/api/account${eventQuery(event)}`))
 export const fetchTrades = async (event?: string) => json<Trade[]>(await send(`/api/account/trades${eventQuery(event)}`))

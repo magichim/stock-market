@@ -13,6 +13,8 @@ from .auth import CurrentUser, get_optional_user, origin_allowed
 from .config import settings
 from .db import Base, apply_schema_patches, engine, ensure_database
 from .prices import run_close_recorder, run_collector
+from .routers.indices import client as indices_client
+from .routers.indices import router as indices_router
 from .routers.leaderboard import router as leaderboard_router
 from .routers.stocks import router as stocks_router
 from .routers.trading import router as trading_router
@@ -40,6 +42,7 @@ async def lifespan(app: FastAPI):
     await app.state.redis.aclose()
     await engine.dispose()
     await users_client.aclose()
+    await indices_client.aclose()
 
 
 app = FastAPI(title="AGISAJA Stock", lifespan=lifespan)
@@ -76,6 +79,7 @@ async def me(user: CurrentUser | None = Depends(get_optional_user)) -> dict:
     }
 
 
+app.include_router(indices_router)
 app.include_router(stocks_router)
 app.include_router(trading_router)
 app.include_router(leaderboard_router)

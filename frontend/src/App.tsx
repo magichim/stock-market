@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { fetchEvents, fetchMe, loginUrl, logout, type StockEvent, type StockHit, type User } from './api'
 import { AccountView } from './components/AccountView'
+import { HomeView } from './components/HomeView'
 import { LeaderboardView } from './components/LeaderboardView'
 import { StockSearch } from './components/StockSearch'
 import { StocksView } from './components/StocksView'
 
-// 화면 — 종목은 국내·해외를 URL로 나눈다
-type Tab = 'domestic' | 'overseas' | 'account' | 'leaderboard'
+// 화면 — 메인(/)은 주요 지수, 종목은 국내·해외를 URL로 나눈다
+type Tab = 'home' | 'domestic' | 'overseas' | 'account' | 'leaderboard'
 const PATHS: Record<Tab, string> = {
+  home: '/',
   domestic: '/domestic',
   overseas: '/overseas',
   account: '/account',
@@ -20,9 +22,9 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'leaderboard', label: '리더보드' },
 ]
 const menuKey = (tab: Tab) => (tab === 'overseas' ? 'domestic' : tab)
-// URL 경로 → 화면. 모르는 경로(/ 포함)는 국내 종목 (서버는 모든 경로에 index.html을 준다)
+// URL 경로 → 화면. 모르는 경로는 메인 (서버는 모든 경로에 index.html을 준다)
 const tabFromPath = () =>
-  (Object.keys(PATHS) as Tab[]).find((t) => PATHS[t] === window.location.pathname) ?? 'domestic'
+  (Object.keys(PATHS) as Tab[]).find((t) => PATHS[t] === window.location.pathname) ?? 'home'
 
 export function App() {
   const [user, setUser] = useState<User | null>(null)
@@ -150,6 +152,7 @@ export function App() {
           </div>
         )}
 
+        {tab === 'home' && <HomeView onMarket={(domestic) => go(domestic ? 'domestic' : 'overseas')} />}
         {(tab === 'domestic' || tab === 'overseas') && (
           <StocksView
             key={tab}

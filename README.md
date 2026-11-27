@@ -11,7 +11,7 @@ backend/app/
   trading.py      계좌 조회·시장가 체결 (오더북 없음, 최신가로 즉시 전량 체결)
   leaderboard.py  수익률 순위 — 실시간(Redis ZSET) / 월간 / 연간 / 이벤트
   users.py        predict-market 프로필 조회(내부 API)·탈퇴 사용자 계좌 정리
-  routers/        /api/stocks, /api/account, /api/trades, /api/events, /api/leaderboard
+  routers/        /api/indices(주요 지수 — Yahoo Finance), /api/stocks, /api/account, /api/trades, /api/events, /api/leaderboard
 frontend/src/     종목(주문) · 내 계좌 · 리더보드 탭
 kis/              KIS 게이트웨이 — 한국투자증권 Open API 샘플을 HTTP로 구동 (포트 8200, kis/README.md)
 ```

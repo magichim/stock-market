@@ -1,0 +1,41 @@
+/* 메인 주요 지수 (HomeView) */
+.indices {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.index {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 4px;
+  background: var(--bg);
+  font-size: 13px;
+}
+
+.index strong {
+  font-size: 18px;
+}
+
+@media (max-width: 768px) {
+  .indices {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 국내·해외 종목 화면 이동 — 지수 아래 같은 너비 버튼 두 개 */
+.market-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.market-nav .btn {
+  padding: 14px;
+  font-size: 15px;
+}
